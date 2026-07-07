@@ -1,0 +1,51 @@
+@page
+@model FinalProject_PRN222_Group7.Pages.Auth.LogoutModel
+@{
+    ViewData["Title"] = "Sign Out";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign Out — EduChat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/auth.css" asp-append-version="true" />
+</head>
+<body>
+<div class="logout-centered">
+    <div class="logout-card">
+        <!-- Brand -->
+        <a href="/" style="display:inline-flex;align-items:center;gap:0.5rem;font-weight:700;font-size:1rem;letter-spacing:-0.02em;color:var(--text-primary);text-decoration:none;margin-bottom:2rem;">
+            <div style="width:28px;height:28px;background:linear-gradient(135deg,var(--accent),var(--accent-dim));border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:15px;height:15px;color:#000;">
+                    <path d="M11.7 2.805a.75.75 0 01.6 0A60.65 60.65 0 0122.83 8.72a.75.75 0 01-.231 1.337 49.949 49.949 0 00-9.902 3.912l-.003.002-.34.18a.75.75 0 01-.707 0A50.009 50.009 0 007.5 12.174v-.224c0-.131.067-.248.172-.311a54.614 54.614 0 014.653-2.52.75.75 0 00-.65-1.352 56.129 56.129 0 00-4.78 2.589 1.858 1.858 0 00-.859 1.228 49.803 49.803 0 00-4.634-1.527.75.75 0 01-.231-1.337A60.653 60.653 0 0111.7 2.805z"/>
+                </svg>
+            </div>
+            EduChat
+        </a>
+
+        <!-- Icon -->
+        <div class="logout-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/>
+            </svg>
+        </div>
+
+        <h1 class="logout-title">Sign out?</h1>
+        <p class="logout-desc">You'll need to sign in again to access your courses and AI tutor.</p>
+
+        <div class="logout-actions">
+            <form method="post">
+                <button type="submit" class="btn-danger" id="logout-confirm-btn">Yes, sign me out</button>
+            </form>
+            <a class="btn-cancel" asp-page="/Index" id="logout-cancel-btn">Cancel</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>

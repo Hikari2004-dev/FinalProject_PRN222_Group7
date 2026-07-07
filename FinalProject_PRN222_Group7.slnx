@@ -1,3 +1,5 @@
 <Solution>
   <Project Path="FinalProject_PRN222_Group7/FinalProject_PRN222_Group7.csproj" />
+  <Project Path="FinalProject_PRN222_Group7.BLL/FinalProject_PRN222_Group7.BLL.csproj" />
+  <Project Path="FinalProject_PRN222_Group7.DAL/FinalProject_PRN222_Group7.DAL.csproj" />
 </Solution>
