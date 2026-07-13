@@ -1,8 +1,8 @@
-using FinalProject_PRN222_Group7.DAL.Data;
 using FinalProject_PRN222_Group7.DAL.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using System.Collections.Generic;
 
 namespace FinalProject_PRN222_Group7.Pages.Auth
 {
@@ -10,13 +10,11 @@ namespace FinalProject_PRN222_Group7.Pages.Auth
     {
         private readonly UserManager<AppUser> _userManager;
         private readonly SignInManager<AppUser> _signInManager;
-        private readonly AppDbContext _context;
 
-        public RegisterModel(UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, AppDbContext context)
+        public RegisterModel(UserManager<AppUser> userManager, SignInManager<AppUser> signInManager)
         {
             _userManager = userManager;
             _signInManager = signInManager;
-            _context = context;
         }
 
         [BindProperty] public string FullName { get; set; } = "";

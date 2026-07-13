@@ -13,14 +13,12 @@ namespace FinalProject_PRN222_Group7.Pages.Chat
         private readonly IChatService _chatService;
         private readonly ICourseService _courseService;
         private readonly UserManager<AppUser> _userManager;
-        private readonly AppDbContext _context;
 
-        public IndexModel(IChatService chatService, ICourseService courseService, UserManager<AppUser> userManager, AppDbContext context)
+        public IndexModel(IChatService chatService, ICourseService courseService, UserManager<AppUser> userManager)
         {
             _chatService = chatService;
             _courseService = courseService;
             _userManager = userManager;
-            _context = context;
         }
 
         public IEnumerable<ChatSession> Sessions { get; set; } = new List<ChatSession>();
@@ -51,17 +49,7 @@ namespace FinalProject_PRN222_Group7.Pages.Chat
                 ActiveSessionId = sessionId;
             }
 
-            if (UserRole == "Admin" || UserRole == "Lecturer")
-            {
-                RemainingQueries = int.MaxValue;
-            }
-            else
-            {
-                var pkg = await _context.UserPackages
-                    .Include(up => up.Package)
-                    .FirstOrDefaultAsync(up => up.UserId == user.Id && up.IsActive);
-                RemainingQueries = pkg?.Package?.MonthlyAiQueries == -1 ? int.MaxValue : pkg?.RemainingQueries ?? 0;
-            }
+            RemainingQueries = await _chatService.GetUserRemainingQueriesAsync(user.Id, UserRole);
         }
 
         public async Task<IActionResult> OnPostDeleteSessionAsync(int sessionId)

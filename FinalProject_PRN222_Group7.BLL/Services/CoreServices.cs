@@ -2,6 +2,10 @@ using FinalProject_PRN222_Group7.DAL.Data;
 using FinalProject_PRN222_Group7.DAL.Entities;
 using FinalProject_PRN222_Group7.DAL.Repositories;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace FinalProject_PRN222_Group7.BLL.Services
 {
@@ -15,6 +19,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         Task DeleteAsync(int id);
         Task<int> GetTotalCountAsync();
         Task ProcessLocalDocumentAsync(int docId, string filePath);
+        Task<IEnumerable<DocumentChunk>> GetDocumentChunksAsync(int documentId);
     }
 
     public class DocumentService : IDocumentService
@@ -262,6 +267,14 @@ namespace FinalProject_PRN222_Group7.BLL.Services
             }
             return chunks;
         }
+
+        public async Task<IEnumerable<DocumentChunk>> GetDocumentChunksAsync(int documentId)
+        {
+            return await _context.DocumentChunks
+                .Where(c => c.DocumentId == documentId)
+                .OrderBy(c => c.ChunkIndex)
+                .ToListAsync();
+        }
     }
 
     // ============ COURSE SERVICE ============
@@ -340,6 +353,8 @@ namespace FinalProject_PRN222_Group7.BLL.Services
     }
 
     // ============ CHAT SERVICE ============
+    public record SendResponseDto(string Answer, int SessionId, string[] Citations, int TokensUsed);
+
     public interface IChatService
     {
         Task<IEnumerable<ChatSession>> GetUserSessionsAsync(string userId);
@@ -349,17 +364,23 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         Task<bool> CheckQueryLimitAsync(string userId);
         Task DecrementQueryLimitAsync(string userId);
         Task DeleteSessionAsync(int id);
+        Task<SendResponseDto> ProcessChatQuestionAsync(string userId, string question, int? sessionId, int? courseId, bool isPrivileged);
+        Task<int> GetUserRemainingQueriesAsync(string userId, string userRole);
     }
 
     public class ChatService : IChatService
     {
         private readonly IChatRepository _repo;
         private readonly AppDbContext _context;
+        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IConfiguration _configuration;
 
-        public ChatService(IChatRepository repo, AppDbContext context)
+        public ChatService(IChatRepository repo, AppDbContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration)
         {
             _repo = repo;
             _context = context;
+            _httpClientFactory = httpClientFactory;
+            _configuration = configuration;
         }
 
         public async Task<IEnumerable<ChatSession>> GetUserSessionsAsync(string userId)
@@ -436,6 +457,187 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                 _context.ChatSessions.Remove(session);
                 await _context.SaveChangesAsync();
             }
+        }
+
+        private static int _keyIndex = 0;
+        private static readonly object _keyLock = new object();
+
+        private string GetNextApiKey(List<string> keys)
+        {
+            if (keys == null || !keys.Any()) return string.Empty;
+            lock (_keyLock)
+            {
+                if (_keyIndex >= keys.Count) _keyIndex = 0;
+                var key = keys[_keyIndex];
+                _keyIndex = (_keyIndex + 1) % keys.Count;
+                return key;
+            }
+        }
+
+        public async Task<SendResponseDto> ProcessChatQuestionAsync(string userId, string question, int? sessionId, int? courseId, bool isPrivileged)
+        {
+            // Lấy hoặc Tạo session chat
+            int activeSessionId;
+            if (sessionId.HasValue)
+            {
+                activeSessionId = sessionId.Value;
+            }
+            else
+            {
+                var session = new ChatSession { UserId = userId, CourseId = courseId };
+                _context.ChatSessions.Add(session);
+                await _context.SaveChangesAsync();
+                activeSessionId = session.Id;
+            }
+
+            // Lấy lịch sử cuộc trò chuyện gần đây trước khi lưu câu hỏi mới làm ngữ cảnh bộ nhớ
+            var history = await _context.ChatMessages
+                .Where(m => m.ChatSessionId == activeSessionId)
+                .OrderByDescending(m => m.Id)
+                .Take(6)
+                .ToListAsync();
+            history.Reverse();
+            var historyText = string.Join("\n", history.Select(h => $"{(h.Role == MessageRole.User ? "Học sinh" : "AI")}: {h.Content}"));
+
+            // Lưu câu hỏi của User vào Database
+            await AddMessageAsync(activeSessionId, MessageRole.User, question);
+
+            string answer = "";
+            List<string> citations = new List<string>();
+            int tokensUsed = 0;
+
+            try
+            {
+                // 1. Lấy tất cả phân mảnh tài liệu của môn học này
+                var dbChunks = await _context.DocumentChunks
+                    .Include(c => c.Document)
+                    .Where(c => c.Document.CourseId == courseId && c.Document.Status == DocumentStatus.Indexed)
+                    .ToListAsync();
+
+                // 2. Thuật toán lọc trích xuất ngữ cảnh liên quan (Keyword relevance scoring)
+                var keywords = question.ToLower()
+                    .Split(new[] { ' ', '?', ',', '.', '!', '-', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Where(w => w.Length > 2)
+                    .Distinct()
+                    .ToList();
+
+                var matchedChunks = dbChunks.Select(c => new
+                {
+                    Chunk = c,
+                    Score = keywords.Count(k => c.Content.ToLower().Contains(k))
+                })
+                .Where(x => x.Score > 0)
+                .OrderByDescending(x => x.Score)
+                .Take(4)
+                .Select(x => x.Chunk)
+                .ToList();
+
+                if (!matchedChunks.Any())
+                {
+                    matchedChunks = dbChunks.Take(2).ToList();
+                }
+
+                var contextText = string.Join("\n\n", matchedChunks.Select(c => $"[Tài liệu: {c.Document.OriginalName}]: {c.Content}"));
+                citations = matchedChunks.Select(c => c.Document.OriginalName).Distinct().ToList();
+
+                if (!citations.Any())
+                {
+                    citations.Add("Kiến thức nền tảng hệ thống");
+                }
+
+                // 3. Cấu hình Gemini API Keys xoay vòng
+                var geminiSection = _configuration.GetSection("Gemini");
+                var keys = geminiSection.GetSection("ApiKeys").Get<List<string>>() ?? new List<string>();
+                var apiKey = GetNextApiKey(keys);
+                var modelName = geminiSection.GetValue<string>("Model") ?? "gemini-2.5-flash";
+
+                if (string.IsNullOrEmpty(apiKey))
+                {
+                    answer = "Lỗi hệ thống: Chưa cấu hình khóa Google Gemini API.";
+                }
+                else
+                {
+                    var client = _httpClientFactory.CreateClient();
+                    var url = $"https://generativelanguage.googleapis.com/v1beta/models/{modelName}:generateContent?key={apiKey}";
+
+                    var requestPayload = new
+                    {
+                        contents = new[]
+                        {
+                            new
+                            {
+                                role = "user",
+                                parts = new[]
+                                {
+                                    new { text = $"System Instruction: Bạn là trợ lý học tập AI thông minh, hỗ trợ sinh viên giải đáp thắc mắc. Hãy trả lời câu hỏi của học sinh một cách rõ ràng, chi tiết, thân thiện như một chatbot thực thụ, trình bày nội dung bằng định dạng HTML/Markdown dễ đọc. Dưới đây là nội dung tài liệu học tập liên quan làm ngữ cảnh (Context) để trả lời:\n[Bắt đầu Context]\n{contextText}\n[Kết thúc Context]\n\nDưới đây là lịch sử chat gần đây để bạn nắm thông tin ngữ cảnh hội thoại:\n{historyText}\n\nHãy trả lời câu hỏi sau của học sinh:\nCâu hỏi: {question}" }
+                                }
+                            }
+                        },
+                        generationConfig = new
+                        {
+                            temperature = 0.4,
+                            maxOutputTokens = 2048
+                        }
+                    };
+
+                    var response = await client.PostAsJsonAsync(url, requestPayload);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var responseData = await response.Content.ReadFromJsonAsync<JsonElement>();
+                        try
+                        {
+                            answer = responseData
+                                .GetProperty("candidates")[0]
+                                .GetProperty("content")
+                                .GetProperty("parts")[0]
+                                .GetProperty("text")
+                                .GetString() ?? "";
+
+                            // Đếm token tượng trưng nếu không có trong metadata
+                            tokensUsed = question.Length / 4 + answer.Length / 4;
+                        }
+                        catch
+                        {
+                            answer = "Lỗi hệ thống: Không thể phân tích phản hồi từ Google Gemini API.";
+                        }
+                    }
+                    else
+                    {
+                        var errorContent = await response.Content.ReadAsStringAsync();
+                        answer = $"Lỗi hệ thống từ Gemini: {response.StatusCode}. Chi tiết: {errorContent}";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                answer = $"Đã có lỗi xảy ra trong quá trình xử lý câu hỏi: {ex.Message}";
+            }
+
+            // Lưu câu trả lời của AI vào Database
+            var citationsText = string.Join(", ", citations);
+            await AddMessageAsync(activeSessionId, MessageRole.Assistant, answer, citationsText, tokensUsed);
+
+            // Khấu trừ lượt hỏi nếu không phải Admin/Giảng viên
+            if (!isPrivileged)
+            {
+                await DecrementQueryLimitAsync(userId);
+            }
+
+            return new SendResponseDto(answer, activeSessionId, citations.ToArray(), tokensUsed);
+        }
+
+        public async Task<int> GetUserRemainingQueriesAsync(string userId, string userRole)
+        {
+            if (userRole == "Admin" || userRole == "Lecturer")
+            {
+                return int.MaxValue;
+            }
+
+            var pkg = await _context.UserPackages
+                .Include(up => up.Package)
+                .FirstOrDefaultAsync(up => up.UserId == userId && up.IsActive);
+            
+            return pkg?.Package?.MonthlyAiQueries == -1 ? int.MaxValue : pkg?.RemainingQueries ?? 0;
         }
     }
 

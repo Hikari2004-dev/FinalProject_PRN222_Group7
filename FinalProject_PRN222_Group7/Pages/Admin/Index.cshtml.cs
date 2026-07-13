@@ -1,10 +1,8 @@
 using FinalProject_PRN222_Group7.BLL.Services;
-using FinalProject_PRN222_Group7.DAL.Data;
 using FinalProject_PRN222_Group7.DAL.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,21 +14,21 @@ namespace FinalProject_PRN222_Group7.Pages.Admin
     {
         private readonly IReportService _reportService;
         private readonly IPaymentService _paymentService;
+        private readonly IAdminUserService _adminUserService;
         private readonly UserManager<AppUser> _userManager;
-        private readonly AppDbContext _context;
         private readonly IEmailService _emailService;
 
         public IndexModel(
             IReportService reportService, 
             IPaymentService paymentService, 
+            IAdminUserService adminUserService,
             UserManager<AppUser> userManager, 
-            AppDbContext context,
             IEmailService emailService)
         {
             _reportService = reportService;
             _paymentService = paymentService;
+            _adminUserService = adminUserService;
             _userManager = userManager;
-            _context = context;
             _emailService = emailService;
         }
 
@@ -45,19 +43,14 @@ namespace FinalProject_PRN222_Group7.Pages.Admin
             Stats = await _reportService.GetDashboardStatsAsync();
             Payments = await _paymentService.GetAllPaymentsAsync();
 
-            RecentUsers = await _context.Users
-                .OrderByDescending(u => u.CreatedAt)
-                .Take(20)
-                .ToListAsync();
+            RecentUsers = await _adminUserService.GetRecentUsersAsync(20);
 
             foreach (var u in RecentUsers)
             {
                 var roles = await _userManager.GetRolesAsync(u);
                 UserRoles[u.Id] = roles.FirstOrDefault() ?? "Student";
 
-                var pkg = await _context.UserPackages
-                    .Include(up => up.Package)
-                    .FirstOrDefaultAsync(up => up.UserId == u.Id && up.IsActive);
+                var pkg = await _adminUserService.GetUserPackageAsync(u.Id);
                 UserPackages[u.Id] = pkg?.Package?.Name ?? "Basic";
             }
         }
@@ -79,26 +72,10 @@ namespace FinalProject_PRN222_Group7.Pages.Admin
                 EmailConfirmed = true
             };
 
-            var result = await _userManager.CreateAsync(user, password);
-            if (result.Succeeded)
+            var targetRole = new[] { "Student", "Lecturer", "Admin" }.Contains(role) ? role : "Student";
+            var success = await _adminUserService.CreateUserWithPackageAsync(user, password, targetRole, 1);
+            if (success)
             {
-                var targetRole = new[] { "Student", "Lecturer", "Admin" }.Contains(role) ? role : "Student";
-                await _userManager.AddToRoleAsync(user, targetRole);
-
-                if (targetRole == "Student")
-                {
-                    _context.UserPackages.Add(new UserPackage
-                    {
-                        UserId = user.Id,
-                        PackageId = 1,
-                        StartDate = DateTime.UtcNow,
-                        EndDate = DateTime.UtcNow.AddYears(1),
-                        RemainingQueries = 50,
-                        IsActive = true
-                    });
-                    await _context.SaveChangesAsync();
-                }
-
                 // Send email notification via SMTP
                 try
                 {
@@ -112,7 +89,7 @@ namespace FinalProject_PRN222_Group7.Pages.Admin
             }
             else
             {
-                TempData["Error"] = $"Không thể tạo tài khoản: {string.Join(", ", result.Errors.Select(e => e.Description))}";
+                TempData["Error"] = "Không thể tạo tài khoản. Vui lòng kiểm tra lại địa chỉ email hoặc tài khoản đã tồn tại.";
             }
 
             return RedirectToPage();
@@ -158,26 +135,10 @@ namespace FinalProject_PRN222_Group7.Pages.Admin
                     EmailConfirmed = true
                 };
 
-                var result = await _userManager.CreateAsync(user, password);
-                if (result.Succeeded)
+                var targetRole = new[] { "Student", "Lecturer", "Admin" }.Contains(role) ? role : "Student";
+                var success = await _adminUserService.CreateUserWithPackageAsync(user, password, targetRole, 1);
+                if (success)
                 {
-                    var targetRole = new[] { "Student", "Lecturer", "Admin" }.Contains(role) ? role : "Student";
-                    await _userManager.AddToRoleAsync(user, targetRole);
-
-                    if (targetRole == "Student")
-                    {
-                        _context.UserPackages.Add(new UserPackage
-                        {
-                            UserId = user.Id,
-                            PackageId = 1,
-                            StartDate = DateTime.UtcNow,
-                            EndDate = DateTime.UtcNow.AddYears(1),
-                            RemainingQueries = 50,
-                            IsActive = true
-                        });
-                        await _context.SaveChangesAsync();
-                    }
-
                     // Gửi mail cho từng user
                     try
                     {
@@ -192,7 +153,7 @@ namespace FinalProject_PRN222_Group7.Pages.Admin
                 }
                 else
                 {
-                    errors.Add($"Lỗi tạo {email}: {string.Join("; ", result.Errors.Select(e => e.Description))}");
+                    errors.Add($"Lỗi tạo {email}: Tài khoản đã tồn tại hoặc dữ liệu không hợp lệ.");
                 }
             }
 
@@ -211,7 +172,6 @@ namespace FinalProject_PRN222_Group7.Pages.Admin
 
         private string GenerateRandomPassword()
         {
-            // Trả về mật khẩu ngẫu nhiên thỏa mãn quy chuẩn mật khẩu (ít nhất 1 số, 1 chữ hoa, 1 chữ thường, 1 ký tự đặc biệt, >=6 ký tự)
             return "P@ss" + Guid.NewGuid().ToString("N")[..8];
         }
 

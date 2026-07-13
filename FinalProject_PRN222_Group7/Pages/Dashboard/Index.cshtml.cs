@@ -1,9 +1,10 @@
 using FinalProject_PRN222_Group7.BLL.Services;
-using FinalProject_PRN222_Group7.DAL.Data;
 using FinalProject_PRN222_Group7.DAL.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace FinalProject_PRN222_Group7.Pages.Dashboard
 {
@@ -12,16 +13,21 @@ namespace FinalProject_PRN222_Group7.Pages.Dashboard
         private readonly IReportService _reportService;
         private readonly IDocumentService _docService;
         private readonly IChatService _chatService;
+        private readonly IDashboardService _dashboardService;
         private readonly UserManager<AppUser> _userManager;
-        private readonly AppDbContext _context;
 
-        public IndexModel(IReportService reportService, IDocumentService docService, IChatService chatService, UserManager<AppUser> userManager, AppDbContext context)
+        public IndexModel(
+            IReportService reportService, 
+            IDocumentService docService, 
+            IChatService chatService, 
+            IDashboardService dashboardService,
+            UserManager<AppUser> userManager)
         {
             _reportService = reportService;
             _docService = docService;
             _chatService = chatService;
+            _dashboardService = dashboardService;
             _userManager = userManager;
-            _context = context;
         }
 
         public string UserName { get; set; } = "";
@@ -68,15 +74,12 @@ namespace FinalProject_PRN222_Group7.Pages.Dashboard
                 MyChatSessions = sessions.Count();
 
                 // Quiz stats
-                var attempts = await _context.QuizAttempts
-                    .Where(a => a.UserId == user.Id && a.IsCompleted)
-                    .ToListAsync();
+                var attempts = (await _dashboardService.GetRecentAttemptsAsync(user.Id, "Student", int.MaxValue)).ToList();
                 MyQuizAttempts = attempts.Count;
                 MyAvgScore = attempts.Any() ? (int)attempts.Average(a => a.Score) : 0;
 
                 // Remaining queries
-                var pkg = await _context.UserPackages
-                    .FirstOrDefaultAsync(up => up.UserId == user.Id && up.IsActive);
+                var pkg = await _dashboardService.GetActiveUserPackageAsync(user.Id);
                 RemainingQueries = pkg?.RemainingQueries ?? 0;
             }
         }

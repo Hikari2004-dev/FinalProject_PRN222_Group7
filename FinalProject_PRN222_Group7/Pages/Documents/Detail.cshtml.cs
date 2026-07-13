@@ -1,10 +1,8 @@
 using FinalProject_PRN222_Group7.BLL.Services;
-using FinalProject_PRN222_Group7.DAL.Data;
 using FinalProject_PRN222_Group7.DAL.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -14,13 +12,11 @@ namespace FinalProject_PRN222_Group7.Pages.Documents
     public class DetailModel : PageModel
     {
         private readonly IDocumentService _docService;
-        private readonly AppDbContext _context;
         private readonly UserManager<AppUser> _userManager;
 
-        public DetailModel(IDocumentService docService, AppDbContext context, UserManager<AppUser> userManager)
+        public DetailModel(IDocumentService docService, UserManager<AppUser> userManager)
         {
             _docService = docService;
-            _context = context;
             _userManager = userManager;
         }
 
@@ -39,10 +35,7 @@ namespace FinalProject_PRN222_Group7.Pages.Documents
                 return RedirectToPage("/Courses/Index");
             }
 
-            Chunks = await _context.DocumentChunks
-                .Where(c => c.DocumentId == id)
-                .OrderBy(c => c.ChunkIndex)
-                .ToListAsync();
+            Chunks = await _docService.GetDocumentChunksAsync(id);
 
             // Fallback mock chunks if none exists yet for demo purposes
             if (!Chunks.Any() && Doc.Status == DocumentStatus.Indexed)

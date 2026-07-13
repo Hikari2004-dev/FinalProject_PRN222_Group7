@@ -1,20 +1,22 @@
-using FinalProject_PRN222_Group7.DAL.Data;
+using FinalProject_PRN222_Group7.BLL.Services;
 using FinalProject_PRN222_Group7.DAL.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace FinalProject_PRN222_Group7.Pages.Benchmark
 {
     public class IndexModel : PageModel
     {
-        private readonly AppDbContext _context;
+        private readonly IBenchmarkService _benchmarkService;
         private readonly UserManager<AppUser> _userManager;
 
-        public IndexModel(AppDbContext context, UserManager<AppUser> userManager)
+        public IndexModel(IBenchmarkService benchmarkService, UserManager<AppUser> userManager)
         {
-            _context = context;
+            _benchmarkService = benchmarkService;
             _userManager = userManager;
         }
 
@@ -22,7 +24,7 @@ namespace FinalProject_PRN222_Group7.Pages.Benchmark
 
         public async Task OnGetAsync()
         {
-            Runs = await _context.BenchmarkRuns.OrderByDescending(r => r.RunAt).ToListAsync();
+            Runs = await _benchmarkService.GetAllRunsAsync();
         }
 
         public async Task<IActionResult> OnPostAsync(string name, string embeddingModel, int chunkSize, int chunkOverlap, int totalQuestions)
@@ -30,7 +32,6 @@ namespace FinalProject_PRN222_Group7.Pages.Benchmark
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return RedirectToPage("/Auth/Login");
 
-            // Mock calculations based on parameter ranges
             var random = new Random();
             double multiplier = chunkSize switch
             {
@@ -57,8 +58,7 @@ namespace FinalProject_PRN222_Group7.Pages.Benchmark
 
             run.OverallAccuracy = (run.Faithfulness + run.AnswerRelevancy + run.ContextPrecision + run.ContextRecall) / 4.0;
 
-            _context.BenchmarkRuns.Add(run);
-            await _context.SaveChangesAsync();
+            await _benchmarkService.AddRunAsync(run);
 
             return RedirectToPage();
         }

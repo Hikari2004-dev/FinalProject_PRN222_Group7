@@ -55,6 +55,9 @@ namespace FinalProject_PRN222_Group7
             builder.Services.AddScoped<IPaymentService, PaymentService>();
             builder.Services.AddScoped<IReportService, ReportService>();
             builder.Services.AddScoped<IEmailService, EmailService>();
+            builder.Services.AddScoped<IBenchmarkService, BenchmarkService>();
+            builder.Services.AddScoped<IDashboardService, DashboardService>();
+            builder.Services.AddScoped<IAdminUserService, AdminUserService>();
 
             // ── SignalR ───────────────────────────────────────────────────────
             builder.Services.AddSignalR();
