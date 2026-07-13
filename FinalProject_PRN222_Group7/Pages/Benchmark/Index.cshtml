@@ -1,0 +1,218 @@
+@page
+@model FinalProject_PRN222_Group7.Pages.Benchmark.IndexModel
+@{
+    ViewData["Title"] = "Model Benchmark & Evaluation";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">RAG Benchmark & Evaluation</h1>
+        <p class="page-subtitle">Đo lường hiệu năng, độ chính xác (Accuracy, Faithfulness, Context Recall) của các cấu hình RAG pipeline</p>
+    </div>
+    <button class="btn btn-primary" onclick="document.getElementById('runModal').style.display='flex'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Chạy Benchmark mới
+    </button>
+</div>
+
+<!-- Evaluation metrics grids -->
+@if (Model.Runs.Any())
+{
+    var latest = Model.Runs.First();
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px">
+        <!-- Latest Run Details -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Cấu hình chạy gần nhất: @latest.Name</span>
+                <span class="badge badge-accent">Latest Run</span>
+            </div>
+            <div class="card-body">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+                    <div>
+                        <div style="font-size:0.75rem;color:var(--text-muted)">Embedding Model</div>
+                        <div style="font-size:0.875rem;font-weight:600">@latest.EmbeddingModel</div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.75rem;color:var(--text-muted)">Chiến lược chunking</div>
+                        <div style="font-size:0.875rem;font-weight:600">@latest.ChunkingStrategy (Size: @latest.ChunkSize, Overlap: @latest.ChunkOverlap)</div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.75rem;color:var(--text-muted)">Số câu hỏi test</div>
+                        <div style="font-size:0.875rem;font-weight:600">@latest.TotalQuestions câu</div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.75rem;color:var(--text-muted)">Thời gian chạy</div>
+                        <div style="font-size:0.875rem;font-weight:600">@latest.RunAt.ToString("dd/MM/yyyy HH:mm")</div>
+                    </div>
+                </div>
+
+                <div style="display:flex;flex-direction:column;gap:12px">
+                    @foreach (var (lbl, val, color) in new[] {
+                        ("Faithfulness (Độ trung thực của AI)", latest.Faithfulness, "success"),
+                        ("Answer Relevancy (Độ phù hợp của câu trả lời)", latest.AnswerRelevancy, "accent"),
+                        ("Context Precision (Độ chuẩn xác của ngữ cảnh)", latest.ContextPrecision, "info"),
+                        ("Context Recall (Độ phủ của ngữ cảnh)", latest.ContextRecall, "warning"),
+                        ("Overall Accuracy (Độ chính xác tổng quan)", latest.OverallAccuracy, "accent")
+                    })
+                    {
+                        var pct = (int)(val * 100);
+                        <div>
+                            <div style="display:flex;justify-content:between;font-size:0.8rem;margin-bottom:4px">
+                                <span style="font-weight:500;color:var(--text-secondary)">@lbl</span>
+                                <span style="font-family:var(--font-mono);font-weight:700;color:var(--@color)">@pct%</span>
+                            </div>
+                            <div class="metric-bar">
+                                <div class="metric-bar-fill" style="width:@pct%;background:var(--@color)"></div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Benchmark Comparison Chart -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">So sánh độ chính xác tổng quan giữa các phiên bản</span>
+            </div>
+            <div class="card-body">
+                <div class="chart-container" style="height:250px">
+                    <canvas id="accuracyChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Table -->
+    <div class="card">
+        <div class="card-header"><span class="card-title">Lịch sử chạy Benchmark</span></div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tên cấu hình</th>
+                        <th>Embedding Model</th>
+                        <th>Chunk Size</th>
+                        <th>Faithfulness</th>
+                        <th>Relevancy</th>
+                        <th>Recall</th>
+                        <th>Accuracy</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in Model.Runs)
+                    {
+                        <tr>
+                            <td class="text-primary font-semibold">@r.Name</td>
+                            <td>@r.EmbeddingModel</td>
+                            <td style="font-family:var(--font-mono)">@r.ChunkSize</td>
+                            <td style="font-family:var(--font-mono)">@((r.Faithfulness * 100).ToString("F0"))%</td>
+                            <td style="font-family:var(--font-mono)">@((r.AnswerRelevancy * 100).ToString("F0"))%</td>
+                            <td style="font-family:var(--font-mono)">@((r.ContextRecall * 100).ToString("F0"))%</td>
+                            <td style="font-family:var(--font-mono);font-weight:700" class="text-primary">@((r.OverallAccuracy * 100).ToString("F0"))%</td>
+                            <td>
+                                <button class="btn btn-secondary btn-sm" onclick="showAlert('Đánh giá RAG', 'Đang hiển thị biểu đồ so sánh trực quan ở bảng thống kê phía trên!', '📊')">Xem chi tiết</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="empty-state">
+            <div class="empty-icon">📊</div>
+            <div class="empty-title">Chưa có kết quả benchmark nào</div>
+            <div class="empty-hint" style="margin-bottom:16px">Hãy chạy benchmark để đánh giá pipeline RAG đầu tiên của bạn</div>
+            <button class="btn btn-primary" onclick="document.getElementById('runModal').style.display='flex'">Chạy Benchmark</button>
+        </div>
+    </div>
+}
+
+<!-- Run Benchmark Modal -->
+<div id="runModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:460px;box-shadow:var(--shadow-lg)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+            <h3 style="font-size:1rem;font-weight:700">Chạy Benchmark mới</h3>
+            <button onclick="document.getElementById('runModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+
+        <form method="post">
+            @Html.AntiForgeryToken()
+            <div style="display:flex;flex-direction:column;gap:16px">
+                <div class="form-group">
+                    <label class="form-label">Tên cấu hình chạy</label>
+                    <input type="text" name="Name" class="form-control" placeholder="Ví dụ: Chunk_500_Overlap_50" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Embedding Model</label>
+                    <select name="EmbeddingModel" class="form-control">
+                        <option value="text-embedding-3-small">text-embedding-3-small (OpenAI)</option>
+                        <option value="text-embedding-3-large">text-embedding-3-large (OpenAI)</option>
+                        <option value="bge-large-en-v1.5">bge-large-en-v1.5 (Local)</option>
+                    </select>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div class="form-group">
+                        <label class="form-label">Chunk Size</label>
+                        <input type="number" name="ChunkSize" class="form-control" value="500" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Chunk Overlap</label>
+                        <input type="number" name="ChunkOverlap" class="form-control" value="50" required />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Số câu hỏi test</label>
+                    <select name="TotalQuestions" class="form-control">
+                        <option value="10">10 câu</option>
+                        <option value="25" selected>25 câu</option>
+                        <option value="50">50 câu</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg w-full">Bắt đầu đánh giá</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+@if (Model.Runs.Any())
+{
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+    (function() {
+        var names = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Runs.Select(r => r.Name).Reverse()));
+        var accs = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Runs.Select(r => Math.Round(r.OverallAccuracy * 100, 1)).Reverse()));
+
+        new Chart(document.getElementById('accuracyChart'), {
+            type: 'bar',
+            data: {
+                labels: names,
+                datasets: [{
+                    label: 'Độ chính xác tổng quan',
+                    data: accs,
+                    backgroundColor: 'rgba(59,130,246,0.7)',
+                    borderRadius: 6,
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, max: 100, ticks: { callback: function(value) { return value + "%"; } } }
+                }
+            }
+        });
+    })();
+    </script>
+}
+}

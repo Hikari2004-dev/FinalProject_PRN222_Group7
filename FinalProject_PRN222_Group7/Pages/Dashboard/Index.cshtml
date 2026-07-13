@@ -1,0 +1,301 @@
+@page
+@model FinalProject_PRN222_Group7.Pages.Dashboard.IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="stagger-children">
+
+<!-- Page Header -->
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Xin chào, @Model.UserName 👋</h1>
+        <p class="page-subtitle">@DateTime.Now.ToString("dddd, dd MMMM yyyy", new System.Globalization.CultureInfo("vi-VN"))</p>
+    </div>
+    @if (User.IsInRole("Lecturer") || User.IsInRole("Admin"))
+    {
+        <a href="/Courses" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Môn học & Tài liệu
+        </a>
+    }
+    @if (User.IsInRole("Student"))
+    {
+        <a href="/Chat" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            Hỏi AI ngay
+        </a>
+    }
+</div>
+
+<!-- Stat Cards -->
+<div class="stats-grid">
+    @if (User.IsInRole("Admin"))
+    {
+        <div class="stat-card accent">
+            <div class="stat-icon accent">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+            </div>
+            <div class="stat-value">@Model.Stats.TotalUsers</div>
+            <div class="stat-label">Tổng người dùng</div>
+        </div>
+
+        <div class="stat-card success">
+            <div class="stat-icon success">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+            </div>
+            <div class="stat-value">@Model.Stats.TotalDocuments</div>
+            <div class="stat-label">Tài liệu đã tải</div>
+        </div>
+
+        <div class="stat-card info">
+            <div class="stat-icon info">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            </div>
+            <div class="stat-value">@Model.Stats.TotalSessions</div>
+            <div class="stat-label">Phiên chat</div>
+        </div>
+
+        <div class="stat-card warning">
+            <div class="stat-icon warning">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
+            </div>
+            <div class="stat-value">@Model.Stats.TotalRevenue.ToString("N0") đ</div>
+            <div class="stat-label">Doanh thu</div>
+        </div>
+    }
+
+    @if (User.IsInRole("Lecturer"))
+    {
+        <div class="stat-card accent">
+            <div class="stat-icon accent">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>
+            </div>
+            <div class="stat-value">@Model.MyDocumentCount</div>
+            <div class="stat-label">Tài liệu đã upload</div>
+        </div>
+        <div class="stat-card success">
+            <div class="stat-icon success">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="stat-value">@Model.Stats.IndexedDocuments</div>
+            <div class="stat-label">Đã đánh chỉ mục</div>
+        </div>
+        <div class="stat-card info">
+            <div class="stat-icon info">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            </div>
+            <div class="stat-value">@Model.Stats.TotalSessions</div>
+            <div class="stat-label">Lượt hỏi AI</div>
+        </div>
+        <div class="stat-card warning">
+            <div class="stat-icon warning">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+            </div>
+            <div class="stat-value">@Model.Stats.TotalQuizAttempts</div>
+            <div class="stat-label">Lượt làm quiz</div>
+        </div>
+    }
+
+    @if (User.IsInRole("Student"))
+    {
+        <div class="stat-card accent">
+            <div class="stat-icon accent">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            </div>
+            <div class="stat-value">@Model.MyChatSessions</div>
+            <div class="stat-label">Phiên chat</div>
+        </div>
+        <div class="stat-card success">
+            <div class="stat-icon success">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+            </div>
+            <div class="stat-value">@Model.MyQuizAttempts</div>
+            <div class="stat-label">Quiz đã làm</div>
+        </div>
+        <div class="stat-card info">
+            <div class="stat-icon info">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+            </div>
+            <div class="stat-value">@Model.MyAvgScore%</div>
+            <div class="stat-label">Điểm quiz TB</div>
+        </div>
+        <div class="stat-card warning">
+            <div class="stat-icon warning">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
+            </div>
+            <div class="stat-value">@(Model.RemainingQueries == int.MaxValue ? "∞" : Model.RemainingQueries.ToString())</div>
+            <div class="stat-label">Câu hỏi còn lại</div>
+        </div>
+    }
+</div>
+
+<!-- Charts + Quick Actions Grid -->
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-bottom:20px">
+
+    <!-- Query Chart -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Lượt hỏi AI - 30 ngày gần nhất</span>
+            <span class="badge badge-accent">Chart.js</span>
+        </div>
+        <div class="card-body">
+            <div class="chart-container" style="height:220px">
+                <canvas id="queryChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Thao tác nhanh</span>
+        </div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
+            <a href="/Chat" class="btn btn-secondary w-full" style="justify-content:flex-start;gap:12px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                Hỏi AI mới
+            </a>
+            <a href="/Quiz" class="btn btn-secondary w-full" style="justify-content:flex-start;gap:12px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+                Làm quiz
+            </a>
+            @if (User.IsInRole("Lecturer") || User.IsInRole("Admin"))
+            {
+                <a href="/Courses" class="btn btn-secondary w-full" style="justify-content:flex-start;gap:12px">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
+                    Môn học & Tài liệu
+                </a>
+            }
+            <a href="/Reports" class="btn btn-secondary w-full" style="justify-content:flex-start;gap:12px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                Xem báo cáo
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Tài liệu gần đây</span>
+            <a href="/Courses" style="font-size:0.78rem;color:var(--accent)">Xem tất cả</a>
+        </div>
+        <div>
+            @if (Model.RecentDocuments.Any())
+            {
+                @foreach (var doc in Model.RecentDocuments)
+                {
+                    <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border)">
+                        <div style="width:36px;height:36px;background:var(--accent-muted);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+                        </div>
+                        <div style="flex:1;min-width:0">
+                            <div style="font-size:0.83rem;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@doc.OriginalName</div>
+                            <div style="font-size:0.72rem;color:var(--text-muted)">@doc.Course.Name</div>
+                        </div>
+                        @{
+                            var (statusClass, statusText) = doc.Status switch {
+                                FinalProject_PRN222_Group7.DAL.Entities.DocumentStatus.Indexed => ("badge-success", "Indexed"),
+                                FinalProject_PRN222_Group7.DAL.Entities.DocumentStatus.Processing => ("badge-warning", "Processing"),
+                                FinalProject_PRN222_Group7.DAL.Entities.DocumentStatus.Failed => ("badge-danger", "Failed"),
+                                _ => ("badge-muted", "Uploaded")
+                            };
+                        }
+                        <span class="badge @statusClass">@statusText</span>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="empty-state">
+                    <div class="empty-icon">📄</div>
+                    <div class="empty-title">Chưa có tài liệu</div>
+                    <div class="empty-hint">Upload tài liệu đầu tiên để bắt đầu</div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Chat gần đây</span>
+            <a href="/Chat" style="font-size:0.78rem;color:var(--accent)">Xem tất cả</a>
+        </div>
+        <div>
+            @if (Model.RecentSessions.Any())
+            {
+                @foreach (var s in Model.RecentSessions)
+                {
+                    <a href="/Chat/Session/@s.Id" style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border);transition:background 0.15s;text-decoration:none" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background=''">
+                        <div style="width:36px;height:36px;background:var(--info-muted);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--info)" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                        </div>
+                        <div style="flex:1;min-width:0">
+                            <div style="font-size:0.83rem;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@s.Title</div>
+                            <div style="font-size:0.72rem;color:var(--text-muted)">@s.UpdatedAt.ToString("dd/MM HH:mm")</div>
+                        </div>
+                    </a>
+                }
+            }
+            else
+            {
+                <div class="empty-state">
+                    <div class="empty-icon">💬</div>
+                    <div class="empty-title">Chưa có chat</div>
+                    <div class="empty-hint">Bắt đầu hỏi AI về tài liệu học tập</div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+</div><!-- end stagger-children -->
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+    var labels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ChartLabels));
+    var data   = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ChartData));
+
+    var ctx = document.getElementById('queryChart');
+    if (!ctx) return;
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Lượt hỏi',
+                data: data,
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59,130,246,0.08)',
+                borderWidth: 2,
+                pointRadius: 3,
+                pointBackgroundColor: '#3b82f6',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { mode: 'index' } },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(99,130,185,0.08)' },
+                    ticks: { color: '#64748b', font: { size: 11 }, maxTicksLimit: 8 }
+                },
+                y: {
+                    grid: { color: 'rgba(99,130,185,0.08)' },
+                    ticks: { color: '#64748b', font: { size: 11 }, stepSize: 1 },
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+})();
+</script>
+}
