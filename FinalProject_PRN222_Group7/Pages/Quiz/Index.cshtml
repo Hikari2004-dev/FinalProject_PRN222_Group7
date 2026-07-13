@@ -39,7 +39,7 @@
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
         @foreach (var q in Model.Quizzes)
         {
-            var attempt = Model.UserAttempts.FirstOrDefault(a => a.QuizId == q.Id);
+            var attempt = Model.UserAttempts.Where(a => a.QuizId == q.Id).OrderByDescending(a => a.CompletedAt).FirstOrDefault();
             <div class="card" style="transition:border-color 0.15s,box-shadow 0.15s;cursor:pointer" onmouseenter="this.style.borderColor='var(--border-hover)';this.style.boxShadow='var(--shadow)'" onmouseleave="this.style.borderColor='var(--border)';this.style.boxShadow=''">
                 <div class="card-body">
                     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
@@ -212,7 +212,7 @@ else
 <div id="questionBankModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
     <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:800px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow-lg)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-            <h3 style="font-size:1.1rem;font-weight:700">Kho câu hỏi môn học</h3>
+            <h3 style="font-size:1.1rem;font-weight:700">Kho câu hỏi môn học <span id="bankTotalCountBadge" style="display:none;margin-left:8px;font-size:0.72rem;font-weight:600;background:var(--accent-muted);color:var(--accent);border:1px solid rgba(59,130,246,0.25);padding:2px 9px;border-radius:999px;"></span></h3>
             <button onclick="document.getElementById('questionBankModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.2rem">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
@@ -383,6 +383,7 @@ else
                 Vui lòng chọn môn học để xem câu hỏi.
             </div>
         `;
+        document.getElementById('bankTotalCountBadge').style.display = 'none';
         document.getElementById('questionBankModal').style.display = 'flex';
     }
 
@@ -427,12 +428,16 @@ else
         .then(data => {
             if (data.success) {
                 if (data.questions.length === 0) {
+                    document.getElementById('bankTotalCountBadge').style.display = 'none';
                     container.innerHTML = `
                         <div style="text-align:center;padding:32px;color:var(--text-muted)">
                             Chưa có câu hỏi nào trong kho của môn/chương này.
                         </div>
                     `;
                 } else {
+                    const badge = document.getElementById('bankTotalCountBadge');
+                    badge.textContent = `${data.questions.length} câu hỏi`;
+                    badge.style.display = 'inline-block';
                     let html = '';
                     data.questions.forEach(q => {
                         // Tránh ký tự nháy kép lỗi trong stringify

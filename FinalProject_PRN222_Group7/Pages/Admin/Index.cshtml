@@ -90,7 +90,14 @@
                         <td><span class="badge badge-accent">@(Model.UserPackages.TryGetValue(u.Id, out var pkg) ? pkg : "Basic")</span></td>
                         <td style="font-size:0.8rem">@u.CreatedAt.ToString("dd/MM/yyyy")</td>
                         <td>
-                            <button class="btn btn-secondary btn-sm" onclick="openEditUserModal('@u.Id', '@u.FullName', '@role', @(u.IsActive.ToString().ToLower()))">Phân quyền</button>
+                            @if (role != "Admin" && u.Id != Model.CurrentUserId)
+                            {
+                                <button class="btn btn-secondary btn-sm" onclick="openEditUserModal('@u.Id', '@u.FullName', '@role', @(u.IsActive.ToString().ToLower()))">Phân quyền</button>
+                            }
+                            else
+                            {
+                                <span style="font-size:0.75rem;color:var(--text-muted);font-style:italic">@(u.Id == Model.CurrentUserId ? "Tài khoản của bạn" : "Admin")</span>
+                            }
                         </td>
                     </tr>
                 }

@@ -37,9 +37,13 @@ namespace FinalProject_PRN222_Group7.Pages.Admin
         public Dictionary<string, string> UserRoles { get; set; } = new();
         public Dictionary<string, string> UserPackages { get; set; } = new();
         public IEnumerable<Payment> Payments { get; set; } = new List<Payment>();
+        public string CurrentUserId { get; set; } = "";
 
         public async Task OnGetAsync()
         {
+            var currentUser = await _userManager.GetUserAsync(User);
+            CurrentUserId = currentUser?.Id ?? "";
+
             Stats = await _reportService.GetDashboardStatsAsync();
             Payments = await _paymentService.GetAllPaymentsAsync();
 
@@ -206,6 +210,20 @@ namespace FinalProject_PRN222_Group7.Pages.Admin
             if (user == null)
             {
                 TempData["Error"] = "Người dùng không tồn tại.";
+                return RedirectToPage();
+            }
+
+            // Guard: Admin không thể chỉnh sửa chính mình hoặc Admin khác
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser?.Id == editUserId)
+            {
+                TempData["Error"] = "Bạn không thể thay đổi quyền của chính mình.";
+                return RedirectToPage();
+            }
+            var targetIsAdmin = await _userManager.IsInRoleAsync(user, "Admin");
+            if (targetIsAdmin)
+            {
+                TempData["Error"] = "Không thể thay đổi quyền của tài khoản Admin khác.";
                 return RedirectToPage();
             }
 
