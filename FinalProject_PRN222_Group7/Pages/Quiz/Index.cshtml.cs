@@ -108,7 +108,7 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
                 explanation = q.Explanation
             });
 
-            return new JsonResult(list);
+            return new JsonResult(new { success = true, questions = list.ToList() });
         }
 
         public async Task<IActionResult> OnPostEditBankQuestionAsync(
