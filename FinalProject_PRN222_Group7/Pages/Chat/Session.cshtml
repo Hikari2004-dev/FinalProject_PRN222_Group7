@@ -1,0 +1,7 @@
+@page "/Chat/Session/{sessionId:int}"
+@model FinalProject_PRN222_Group7.Pages.Chat.SessionModel
+@{
+    ViewData["Title"] = "Chat";
+    // Redirect to Chat/Index with session
+}
+<script>window.location.href = '/Chat?sessionId=@Model.SessionId';</script>
