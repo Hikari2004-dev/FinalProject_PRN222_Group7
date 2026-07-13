@@ -112,6 +112,71 @@ else
     <div class="card"><div class="empty-state"><div class="empty-icon">❓</div><div class="empty-title">Chưa có quiz nào</div><div class="empty-hint">Giảng viên có thể tạo quiz AI từ tài liệu học tập hoặc click Luyện tập ngẫu nhiên</div></div></div>
 }
 
+
+<!-- Quiz Attempt History -->
+<div class="card" style="margin-top: 32px; margin-bottom: 24px;">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+        <span class="card-title" style="display:flex;align-items:center;gap:8px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+            Lịch sử làm bài trắc nghiệm
+        </span>
+        <span class="badge badge-accent">@Model.UserAttempts.Count() lượt làm</span>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Môn học</th>
+                    <th>Tên đề thi</th>
+                    <th>Số câu hỏi</th>
+                    <th>Điểm số</th>
+                    <th>Thời gian nộp</th>
+                    <th>Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var attempt in Model.UserAttempts)
+                {
+                    <tr>
+                        <td>
+                            <span class="badge badge-muted" style="font-size:0.75rem">@attempt.Quiz?.Course?.Code</span>
+                            <span style="font-size:0.82rem;color:var(--text-secondary);margin-left:4px">@attempt.Quiz?.Course?.Name</span>
+                        </td>
+                        <td>
+                            <div style="font-weight:600;font-size:0.875rem;color:var(--text-primary)">@attempt.Quiz?.Title</div>
+                        </td>
+                        <td style="font-size:0.82rem">@attempt.CorrectAnswers/@attempt.TotalQuestions câu</td>
+                        <td>
+                            @{
+                                var pct = attempt.Score;
+                                var colorClass = pct >= 70 ? "badge-success" : pct >= 50 ? "badge-warning" : "badge-danger";
+                            }
+                            <span class="badge @colorClass" style="font-weight:700">@pct%</span>
+                        </td>
+                        <td style="font-size:0.8rem;color:var(--text-muted)">
+                            @attempt.CompletedAt?.ToString("dd/MM/yyyy HH:mm")
+                        </td>
+                        <td>
+                            <div style="display:flex;gap:8px">
+                                <a href="/Quiz/Take/@attempt.QuizId" class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:0.75rem">Làm lại</a>
+                                <a href="/Quiz/Result/@attempt.Id" class="btn btn-accent btn-sm" style="padding:4px 8px;font-size:0.75rem;background:var(--info-muted);color:var(--info);border-color:rgba(99,102,241,0.3)">Xem đáp án</a>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.UserAttempts.Any())
+                {
+                    <tr>
+                        <td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted);font-style:italic">
+                            Bạn chưa tham gia bài trắc nghiệm nào. Hãy bắt đầu làm bài hoặc luyện tập!
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <!-- Generate Quiz Modal -->
 <div id="generateModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
     <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:440px;box-shadow:var(--shadow-lg)">

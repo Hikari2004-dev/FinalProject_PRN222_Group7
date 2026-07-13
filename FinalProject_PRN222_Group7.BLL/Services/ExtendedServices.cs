@@ -120,6 +120,8 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         public async Task<IEnumerable<QuizAttempt>> GetUserAttemptsAsync(string userId)
         {
             return await _context.QuizAttempts
+                .Include(a => a.Quiz)
+                    .ThenInclude(q => q.Course)
                 .Where(a => a.UserId == userId && a.IsCompleted)
                 .OrderByDescending(a => a.CompletedAt)
                 .ToListAsync();
