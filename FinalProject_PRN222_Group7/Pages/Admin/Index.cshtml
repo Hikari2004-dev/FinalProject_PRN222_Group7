@@ -1,0 +1,290 @@
+@page
+@model FinalProject_PRN222_Group7.Pages.Admin.IndexModel
+@{
+    ViewData["Title"] = "Quản trị hệ thống";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Quản trị hệ thống</h1>
+        <p class="page-subtitle">Quản lý người dùng, thanh toán và cấu hình hệ thống</p>
+    </div>
+    <div style="display:flex;gap:10px">
+        <button class="btn btn-secondary" onclick="document.getElementById('bulkModal').style.display='flex'">
+            ⚡ Tạo nhanh hàng loạt
+        </button>
+        <button class="btn btn-primary" onclick="document.getElementById('createUserModal').style.display='flex'">
+            + Thêm người dùng
+        </button>
+    </div>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div style="background:var(--success-muted);border:1px solid rgba(16,185,129,0.25);border-radius:var(--radius);padding:12px 14px;margin-bottom:20px;font-size:0.875rem;color:var(--success)">
+        @TempData["Success"]
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div style="background:var(--danger-muted);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius);padding:12px 14px;margin-bottom:20px;font-size:0.875rem;color:var(--danger)">
+        @TempData["Error"]
+    </div>
+}
+
+<!-- Admin Stats -->
+<div class="stats-grid" style="margin-bottom:28px">
+    <div class="stat-card accent">
+        <div class="stat-icon accent"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+        <div class="stat-value">@Model.Stats.TotalUsers</div>
+        <div class="stat-label">Tổng người dùng</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-icon success"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg></div>
+        <div class="stat-value">@Model.Stats.TotalRevenue.ToString("N0") đ</div>
+        <div class="stat-label">Tổng doanh thu</div>
+    </div>
+    <div class="stat-card info">
+        <div class="stat-icon info"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg></div>
+        <div class="stat-value">@Model.Stats.TotalDocuments</div>
+        <div class="stat-label">Tổng tài liệu</div>
+    </div>
+    <div class="stat-card warning">
+        <div class="stat-icon warning"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+        <div class="stat-value">@Model.Stats.TotalSessions</div>
+        <div class="stat-label">Phiên chat</div>
+    </div>
+</div>
+
+<!-- Users Table -->
+<div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+        <span class="card-title">Người dùng gần đây</span>
+        <span class="badge badge-accent">@Model.RecentUsers.Count() người</span>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr><th>Người dùng</th><th>Email</th><th>Vai trò</th><th>Gói dịch vụ</th><th>Ngày đăng ký</th><th>Thao tác</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var u in Model.RecentUsers)
+                {
+                    <tr>
+                        <td>
+                            <div style="display:flex;align-items:center;gap:10px">
+                                <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:#fff;flex-shrink:0">
+                                    @(string.Join("", (u.FullName ?? "U").Split(' ').Select(n => n[0]).Take(2)).ToUpper())
+                                </div>
+                                <span class="text-primary">@u.FullName</span>
+                            </div>
+                        </td>
+                        <td>@u.Email</td>
+                        <td>
+                            @{
+                                var role = Model.UserRoles.TryGetValue(u.Id, out var r) ? r : "Unknown";
+                                var roleClass = role == "Admin" ? "badge-danger" : role == "Lecturer" ? "badge-warning" : "badge-muted";
+                            }
+                            <span class="badge @roleClass">@role</span>
+                        </td>
+                        <td><span class="badge badge-accent">@(Model.UserPackages.TryGetValue(u.Id, out var pkg) ? pkg : "Basic")</span></td>
+                        <td style="font-size:0.8rem">@u.CreatedAt.ToString("dd/MM/yyyy")</td>
+                        <td>
+                            <button class="btn btn-secondary btn-sm" onclick="openEditUserModal('@u.Id', '@u.FullName', '@role', @(u.IsActive.ToString().ToLower()))">Phân quyền</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Payments Table -->
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">Giao dịch gần đây</span>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr><th>Hóa đơn</th><th>Người dùng</th><th>Gói</th><th>Số tiền</th><th>Trạng thái</th><th>Ngày</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var p in Model.Payments)
+                {
+                    <tr>
+                        <td style="font-family:var(--font-mono);font-size:0.78rem">@p.InvoiceNumber</td>
+                        <td class="text-primary">@p.User?.FullName</td>
+                        <td><span class="badge badge-accent">@p.Package?.Name</span></td>
+                        <td style="font-family:var(--font-mono);color:var(--success)">@p.Amount.ToString("N0") đ</td>
+                        <td>
+                            <span class="badge @(p.Status == FinalProject_PRN222_Group7.DAL.Entities.PaymentStatus.Completed ? "badge-success" : "badge-warning")">
+                                @p.Status
+                            </span>
+                        </td>
+                        <td style="font-size:0.8rem">@p.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                    </tr>
+                }
+                @if (!Model.Payments.Any())
+                {
+                    <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:32px">Chưa có giao dịch</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Create Single User Modal -->
+<div id="createUserModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:440px;box-shadow:var(--shadow-lg)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+            <h3 style="font-size:1rem;font-weight:700">Thêm người dùng mới</h3>
+            <button onclick="document.getElementById('createUserModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form method="post" asp-page-handler="CreateSingle">
+            @Html.AntiForgeryToken()
+            <div style="display:flex;flex-direction:column;gap:16px">
+                <div class="form-group">
+                    <label class="form-label">Họ và tên</label>
+                    <input type="text" name="FullName" class="form-control" placeholder="Nguyễn Văn A" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" name="Email" class="form-control" placeholder="example@domain.com" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Vai trò</label>
+                    <select name="Role" class="form-control">
+                        <option value="Student">Sinh viên</option>
+                        <option value="Lecturer">Giảng viên</option>
+                        <option value="Admin">Quản trị viên</option>
+                    </select>
+                </div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">
+                    ℹ Mật khẩu ngẫu nhiên sẽ được tạo tự động và gửi qua email cho người dùng.
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg w-full">Tạo tài khoản</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Bulk Create Users Modal -->
+<div id="bulkModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:520px;box-shadow:var(--shadow-lg)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+            <h3 style="font-size:1rem;font-weight:700">⚡ Tạo nhanh tài khoản hàng loạt</h3>
+            <button onclick="document.getElementById('bulkModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form method="post" asp-page-handler="CreateBulk">
+            @Html.AntiForgeryToken()
+            <div style="display:flex;flex-direction:column;gap:16px">
+                <div class="form-group">
+                    <label class="form-label">Nhập danh sách tài khoản (Mỗi dòng 1 tài khoản)</label>
+                    <textarea name="BulkData" class="form-control" rows="8" placeholder="Họ Tên, Email, VaiTrò (Student/Lecturer/Admin)&#10;Ví dụ:&#10;Nguyễn Sinh Viên, sinhvien@domain.com, Student&#10;Trần Giảng Viên, giangvien@domain.com, Lecturer" style="font-family:var(--font-mono);font-size:0.8rem;line-height:1.4" required></textarea>
+                </div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">
+                    💡 Phân cách các trường bằng dấu phẩy (`,`). Mật khẩu ngẫu nhiên sẽ tự động tạo và gửi qua email cho từng người.
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg w-full">Bắt đầu tạo & gửi mail</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div id="editUserModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:440px;box-shadow:var(--shadow-lg)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+            <h3 style="font-size:1rem;font-weight:700">Phân quyền tài khoản</h3>
+            <button onclick="document.getElementById('editUserModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form method="post" asp-page-handler="EditUser">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="editUserId" id="editUserId" />
+            <div style="display:flex;flex-direction:column;gap:16px">
+                <div class="form-group">
+                    <label class="form-label">Người dùng</label>
+                    <input type="text" id="editUserFullName" class="form-control" readonly style="background:var(--bg-app);cursor:not-allowed;" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Vai trò</label>
+                    <select name="role" id="editUserRole" class="form-control">
+                        <option value="Student">Sinh viên</option>
+                        <option value="Lecturer">Giảng viên</option>
+                        <option value="Admin">Quản trị viên</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Trạng thái hoạt động</label>
+                    <select name="isActive" id="editUserIsActive" class="form-control">
+                        <option value="true">Đang hoạt động</option>
+                        <option value="false">Bị vô hiệu hóa</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg w-full">Lưu thay đổi</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openEditUserModal(id, fullName, role, isActive) {
+        document.getElementById('editUserId').value = id;
+        document.getElementById('editUserFullName').value = fullName;
+        document.getElementById('editUserRole').value = role;
+        document.getElementById('editUserIsActive').value = isActive ? "true" : "false";
+        document.getElementById('editUserModal').style.display = 'flex';
+    }
+
+    // Intercept EditUser form submit → show custom confirm
+    document.getElementById('editUserModal').querySelector('form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const form = this;
+        const fullName = document.getElementById('editUserFullName').value;
+        const role = document.getElementById('editUserRole').value;
+        const isActive = document.getElementById('editUserIsActive').value === 'true' ? 'Đang hoạt động' : 'Bị vô hiệu hóa';
+        showConfirm(
+            'Xác nhận phân quyền',
+            `Bạn có chắc muốn cập nhật tài khoản "${fullName}" thành vai trò "${role}" và trạng thái "${isActive}"?`,
+            '✏️',
+            () => {
+                const btn = form.querySelector('[type="submit"]');
+                setButtonLoading(btn, 'Đang lưu...');
+                form.submit();
+            },
+            false
+        );
+    });
+
+    // Intercept CreateBulk form submit → show custom confirm
+    document.getElementById('bulkModal').querySelector('form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const form = this;
+        const raw = form.querySelector('textarea[name="BulkData"]').value.trim();
+        const lines = raw.split('\n').filter(l => l.trim().length > 0);
+        showConfirm(
+            'Xác nhận tạo hàng loạt',
+            `Bạn sắp tạo ${lines.length} tài khoản và gửi mật khẩu qua email cho từng người. Tiếp tục?`,
+            '⚡',
+            () => {
+                const btn = form.querySelector('[type="submit"]');
+                setButtonLoading(btn, 'Đang tạo & gửi mail...');
+                form.submit();
+            },
+            false
+        );
+    });
+
+    // Prevent double-submit for CreateSingle
+    document.getElementById('createUserModal').querySelector('form').addEventListener('submit', function() {
+        const btn = this.querySelector('[type="submit"]');
+        setButtonLoading(btn, 'Đang tạo...');
+    });
+</script>

@@ -1,0 +1,156 @@
+@page "/Documents/Detail/{id:int}"
+@model FinalProject_PRN222_Group7.Pages.Documents.DetailModel
+@{
+    ViewData["Title"] = "Chi tiết tài liệu";
+}
+
+@if (Model.Doc == null)
+{
+    <div class="empty-state">
+        <div class="empty-icon">❌</div>
+        <div class="empty-title">Không tìm thấy tài liệu</div>
+        <a href="/Courses" class="btn btn-secondary">Quay lại môn học</a>
+    </div>
+    return;
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title" style="word-break:break-all">@Model.Doc.OriginalName</h1>
+        <p class="page-subtitle">Quản lý và xem trước phân mảnh (Chunks) của tài liệu</p>
+    </div>
+    <div style="display:flex;gap:10px">
+        <a href="/Courses" class="btn btn-secondary">Quay lại</a>
+        @if (User.IsInRole("Lecturer") || User.IsInRole("Admin"))
+        {
+            <form method="post" asp-page-handler="Reindex" asp-route-id="@Model.Doc.Id" id="reindexDocForm" style="display:inline">
+                @Html.AntiForgeryToken()
+                <button type="button" class="btn btn-secondary" onclick="confirmReindexDoc()" style="background:var(--accent-muted);color:var(--accent);border:1px solid rgba(59,130,246,0.25)">Index lại</button>
+            </form>
+            <form method="post" asp-page-handler="Delete" asp-route-id="@Model.Doc.Id" id="deleteDocForm" style="display:inline">
+                @Html.AntiForgeryToken()
+                <button type="button" class="btn btn-danger" onclick="confirmDeleteDoc()">Xóa tài liệu</button>
+            </form>
+        }
+    </div>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div style="background:var(--success-muted);border:1px solid rgba(16,185,129,0.25);border-radius:var(--radius);padding:12px 14px;margin-bottom:20px;font-size:0.875rem;color:var(--success)">
+        @TempData["Success"]
+    </div>
+}
+
+<div style="display:grid;grid-template-columns:320px 1fr;gap:24px;align-items:start">
+
+    <!-- Document Info Panel -->
+    <div class="card">
+        <div class="card-header"><span class="card-title">Thông tin tệp</span></div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:16px">
+            <div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">Kích thước</div>
+                <div style="font-size:0.875rem;font-weight:600;font-family:var(--font-mono)">@FormatSize(Model.Doc.FileSizeBytes)</div>
+            </div>
+            <div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">Trạng thái</div>
+                <div style="margin-top:4px">
+                    @{
+                        var (sc, st) = Model.Doc.Status switch {
+                            FinalProject_PRN222_Group7.DAL.Entities.DocumentStatus.Indexed => ("badge-success", "Indexed"),
+                            FinalProject_PRN222_Group7.DAL.Entities.DocumentStatus.Processing => ("badge-warning", "Processing"),
+                            FinalProject_PRN222_Group7.DAL.Entities.DocumentStatus.Failed => ("badge-danger", "Failed"),
+                            _ => ("badge-muted", "Uploaded")
+                        };
+                    }
+                    <span class="badge @sc">@st</span>
+                </div>
+            </div>
+            <div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">Số phân mảnh (Chunks)</div>
+                <div style="font-size:0.875rem;font-weight:600;font-family:var(--font-mono)">@Model.Doc.ChunkCount</div>
+            </div>
+            <div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">Môn học</div>
+                <div style="font-size:0.875rem;font-weight:600">@Model.Doc.Course.Code - @Model.Doc.Course.Name</div>
+            </div>
+            <div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">Người tải lên</div>
+                <div style="font-size:0.875rem;font-weight:600">@Model.Doc.UploadedBy.FullName</div>
+            </div>
+            <div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">Ngày tải lên</div>
+                <div style="font-size:0.875rem;font-weight:600">@Model.Doc.UploadedAt.ToString("dd/MM/yyyy HH:mm")</div>
+            </div>
+            @if (Model.Doc.Status == FinalProject_PRN222_Group7.DAL.Entities.DocumentStatus.Failed && !string.IsNullOrEmpty(Model.Doc.ErrorMessage))
+            {
+                <div style="border-top:1px solid var(--border);padding-top:16px">
+                    <div style="font-size:0.75rem;color:var(--danger);font-weight:600">Lỗi xử lý:</div>
+                    <div style="font-size:0.8rem;color:var(--text-secondary);margin-top:4px">@Model.Doc.ErrorMessage</div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Chunks preview -->
+    <div class="card">
+        <div class="card-header"><span class="card-title">Xem trước các phân mảnh (Chunks) trong Vector DB</span></div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:16px">
+            @if (Model.Chunks.Any())
+            {
+                @foreach (var c in Model.Chunks)
+                {
+                    <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+                        <div style="display:flex;justify-content:between;align-items:center;margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:8px">
+                            <span class="badge badge-accent" style="font-family:var(--font-mono);font-size:0.7rem">Chunk #@c.ChunkIndex</span>
+                            <span style="font-size:0.72rem;color:var(--text-muted)">Số từ: @c.TokenCount tokens | Trang: @c.PageNumber</span>
+                        </div>
+                        <p style="font-size:0.85rem;color:var(--text-secondary);line-height:1.6;white-space:pre-line">@c.Content</p>
+                    </div>
+                }
+            }
+            else
+            {
+                <div style="text-align:center;color:var(--text-muted);padding:32px">
+                    Chưa có chunk nào được trích xuất. Khi tài liệu hoàn tất xử lý (Indexed), nội dung sẽ hiển thị ở đây.
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@functions {
+    string FormatSize(long bytes) {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes/1024.0:F1} KB";
+        return $"{bytes/1024.0/1024.0:F1} MB";
+    }
+}
+
+@section Scripts {
+<script>
+    function confirmDeleteDoc() {
+        showConfirm(
+            'Xóa tài liệu',
+            'Bạn có chắc chắn muốn xóa tài liệu này khỏi hệ thống? Hành động này không thể hoàn tác và sẽ xóa toàn bộ các phân mảnh liên quan.',
+            '🗑️',
+            () => {
+                document.getElementById('deleteDocForm').submit();
+            },
+            true
+        );
+    }
+
+    function confirmReindexDoc() {
+        showConfirm(
+            'Lập chỉ mục lại',
+            'Bạn có chắc chắn muốn phân mảnh và lập chỉ mục lại tài liệu này không?',
+            '🔄',
+            () => {
+                document.getElementById('reindexDocForm').submit();
+            },
+            false
+        );
+    }
+</script>
+}

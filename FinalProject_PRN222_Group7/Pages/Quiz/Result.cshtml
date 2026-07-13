@@ -1,0 +1,109 @@
+@page "/Quiz/Result/{attemptId:int}"
+@model FinalProject_PRN222_Group7.Pages.Quiz.ResultModel
+@{
+    ViewData["Title"] = "Kết quả quiz";
+}
+
+@if (Model.Attempt == null)
+{
+    <div class="empty-state"><div class="empty-icon">❌</div><div class="empty-title">Không tìm thấy kết quả</div><a href="/Quiz" class="btn btn-secondary">Quay lại</a></div>
+    return;
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Kết quả Quiz</h1>
+        <p class="page-subtitle">@Model.Attempt.Quiz.Title</p>
+    </div>
+    <div style="display:flex;gap:10px">
+        <a href="/Quiz/Take/@Model.Attempt.QuizId" class="btn btn-secondary">Làm lại</a>
+        <a href="/Quiz" class="btn btn-primary">Về trang Quiz</a>
+    </div>
+</div>
+
+<!-- Score Summary -->
+<div style="display:grid;grid-template-columns:auto 1fr;gap:24px;margin-bottom:28px;align-items:center">
+    <div class="card" style="text-align:center;padding:28px 36px">
+        @{
+            var pct = Model.Attempt.Score;
+            var color = pct >= 70 ? "var(--success)" : pct >= 50 ? "var(--warning)" : "var(--danger)";
+            var grade = pct >= 90 ? "A+" : pct >= 80 ? "A" : pct >= 70 ? "B" : pct >= 60 ? "C" : "D";
+        }
+        <div style="width:120px;height:120px;border-radius:50%;background:conic-gradient(@color @(pct)%,var(--bg-elevated) 0);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;position:relative">
+            <div style="position:absolute;inset:12px;background:var(--bg-card);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center">
+                <div style="font-size:1.6rem;font-weight:800;font-family:var(--font-mono);color:@color">@pct%</div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">Xếp loại @grade</div>
+            </div>
+        </div>
+        <div style="font-size:0.9rem;font-weight:600;color:var(--text-primary)">
+            @Model.Attempt.CorrectAnswers / @Model.Attempt.TotalQuestions câu đúng
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="stat-card success">
+            <div class="stat-icon success"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            <div class="stat-value">@Model.Attempt.CorrectAnswers</div>
+            <div class="stat-label">Câu đúng</div>
+        </div>
+        <div class="stat-card danger">
+            <div class="stat-icon" style="background:var(--danger-muted);color:var(--danger)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+            <div class="stat-value">@(Model.Attempt.TotalQuestions - Model.Attempt.CorrectAnswers)</div>
+            <div class="stat-label">Câu sai</div>
+        </div>
+        <div class="stat-card info">
+            <div class="stat-icon info"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+            <div class="stat-value">@((Model.Attempt.CompletedAt - Model.Attempt.StartedAt)?.Minutes ?? 0)m</div>
+            <div class="stat-label">Thời gian</div>
+        </div>
+        <div class="stat-card" style="border-top-color:@color">
+            <div class="stat-icon" style="background:rgba(59,130,246,0.1);color:var(--accent)">🏆</div>
+            <div class="stat-value" style="color:@color">@grade</div>
+            <div class="stat-label">Xếp loại</div>
+        </div>
+    </div>
+</div>
+
+<!-- Review -->
+<div class="card">
+    <div class="card-header"><span class="card-title">Chi tiết từng câu</span></div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:20px">
+        @{
+            var userAnswers = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string,string>>(Model.Attempt.AnswersJson ?? "{}") ?? new();
+        }
+        @foreach (var (q, i) in Model.Attempt.Quiz.Questions.Select((q, i) => (q, i)))
+        {
+            var userAns = userAnswers.TryGetValue(q.Id.ToString(), out var ua) ? ua : "";
+            var correct = q.CorrectAnswer.ToString();
+            var isCorrect = userAns.Equals(correct, StringComparison.OrdinalIgnoreCase);
+
+            <div style="border:1px solid @(isCorrect ? "rgba(16,185,129,0.25)" : "rgba(239,68,68,0.25)");border-radius:var(--radius);overflow:hidden">
+                <div style="padding:14px 16px;background:@(isCorrect ? "var(--success-muted)" : "var(--danger-muted)");display:flex;align-items:center;gap:10px">
+                    <div style="width:24px;height:24px;border-radius:50%;background:@(isCorrect ? "var(--success)" : "var(--danger)");display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                        @if (isCorrect) { <text>✓</text> } else { <text>✗</text> }
+                    </div>
+                    <span style="font-size:0.85rem;font-weight:600;color:var(--text-primary)">Câu @(i+1): @q.Content</span>
+                </div>
+                <div style="padding:14px 16px;display:flex;flex-direction:column;gap:6px">
+                    @foreach (var (letter, text) in new[]{ ("A",q.OptionA), ("B",q.OptionB), ("C",q.OptionC), ("D",q.OptionD) })
+                    {
+                        var isAnswer = letter == correct;
+                        var isUser = userAns.Equals(letter, StringComparison.OrdinalIgnoreCase);
+                        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:6px;background:@(isAnswer ? "var(--success-muted)" : isUser && !isAnswer ? "var(--danger-muted)" : "transparent")">
+                            <span style="width:22px;height:22px;border-radius:50%;background:@(isAnswer ? "var(--success)" : isUser && !isAnswer ? "var(--danger)" : "var(--bg-elevated)");display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:@(isAnswer || (isUser && !isAnswer) ? "#fff" : "var(--text-muted)");flex-shrink:0">@letter</span>
+                            <span style="font-size:0.85rem;color:@(isAnswer ? "var(--success)" : isUser && !isAnswer ? "var(--danger)" : "var(--text-secondary)")">@text</span>
+                            @if (isAnswer) { <span style="margin-left:auto;font-size:0.7rem;color:var(--success);font-weight:600">Đáp án đúng</span> }
+                            @if (isUser && !isAnswer) { <span style="margin-left:auto;font-size:0.7rem;color:var(--danger);font-weight:600">Bạn chọn</span> }
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(q.Explanation))
+                    {
+                        <div style="margin-top:8px;padding:10px 12px;background:var(--info-muted);border-radius:6px;font-size:0.8rem;color:var(--text-secondary)">
+                            <strong style="color:var(--info)">Giải thích:</strong> @q.Explanation
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>

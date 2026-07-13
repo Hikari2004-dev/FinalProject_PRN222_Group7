@@ -1,0 +1,121 @@
+@page
+@model RegisterModel
+@{
+    Layout = "_AuthLayout";
+    ViewData["Title"] = "Đăng ký";
+}
+
+<div class="auth-page">
+    <div class="auth-left">
+        <div style="position:relative;z-index:1">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:40px">
+                <div style="width:38px;height:38px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                </div>
+                <span style="font-size:1.1rem;font-weight:700;color:var(--text-primary)">LMS AI Platform</span>
+            </div>
+            <h1 style="font-size:2.2rem;font-weight:800;letter-spacing:-0.03em;color:var(--text-primary);line-height:1.2;margin-bottom:16px">
+                Bắt đầu học tập<br>thông minh hơn
+            </h1>
+            <p style="font-size:0.95rem;color:var(--text-secondary);line-height:1.65;max-width:340px">
+                Tham gia cùng hàng ngàn sinh viên và giảng viên đang sử dụng AI để nâng cao chất lượng dạy và học.
+            </p>
+        </div>
+
+        <div style="position:relative;z-index:1">
+            <div style="font-size:0.8rem;color:var(--text-muted)">
+                Đã có tài khoản?
+                <a href="/Auth/Login" style="color:var(--accent);font-weight:600;margin-left:4px">Đăng nhập</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="auth-right">
+        <div class="auth-form-box slide-up">
+            <h2 class="auth-title">Tạo tài khoản</h2>
+            <p class="auth-subtitle">Điền thông tin để bắt đầu</p>
+
+            @if (Model.ErrorMessages.Any())
+            {
+                <div style="background:var(--danger-muted);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius);padding:12px 14px;margin-bottom:20px">
+                    @foreach (var err in Model.ErrorMessages)
+                    {
+                        <div style="font-size:0.875rem;color:var(--danger)">@err</div>
+                    }
+                </div>
+            }
+
+            <form method="post">
+                @Html.AntiForgeryToken()
+                <div style="display:flex;flex-direction:column;gap:16px;margin-bottom:24px">
+                    <div class="form-group">
+                        <label class="form-label" for="fullName">Họ và tên</label>
+                        <input id="fullName" type="text" name="FullName" class="form-control"
+                               placeholder="Nguyễn Văn A" value="@Model.FullName" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="email">Email</label>
+                        <input id="email" type="email" name="Email" class="form-control"
+                               placeholder="ten@@truong.edu.vn" value="@Model.Email" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Vai trò</label>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                            <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:border-color 0.15s" id="roleStudent">
+                                <input type="radio" name="Role" value="Student" checked onchange="selectRole(this)"
+                                       style="accent-color:var(--accent);width:16px;height:16px" />
+                                <div>
+                                    <div style="font-size:0.85rem;font-weight:600;color:var(--text-primary)">Sinh viên</div>
+                                    <div style="font-size:0.72rem;color:var(--text-muted)">Học và hỏi AI</div>
+                                </div>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:border-color 0.15s" id="roleLecturer">
+                                <input type="radio" name="Role" value="Lecturer" onchange="selectRole(this)"
+                                       style="accent-color:var(--accent);width:16px;height:16px" />
+                                <div>
+                                    <div style="font-size:0.85rem;font-weight:600;color:var(--text-primary)">Giảng viên</div>
+                                    <div style="font-size:0.72rem;color:var(--text-muted)">Upload tài liệu</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="password">Mật khẩu</label>
+                        <input id="password" type="password" name="Password" class="form-control"
+                               placeholder="Ít nhất 6 ký tự, có số" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="confirmPassword">Xác nhận mật khẩu</label>
+                        <input id="confirmPassword" type="password" name="ConfirmPassword" class="form-control"
+                               placeholder="Nhập lại mật khẩu" required />
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-full btn-lg">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                    Tạo tài khoản
+                </button>
+            </form>
+
+            <div style="margin-top:20px;text-align:center;font-size:0.875rem;color:var(--text-muted)">
+                Đã có tài khoản?
+                <a href="/Auth/Login" style="color:var(--accent);font-weight:600;margin-left:4px">Đăng nhập</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function selectRole(el) {
+    document.getElementById('roleStudent').style.borderColor = 'var(--border)';
+    document.getElementById('roleLecturer').style.borderColor = 'var(--border)';
+    var parent = el.closest('label');
+    if (parent) parent.style.borderColor = 'var(--accent)';
+}
+// Init
+document.querySelector('input[name=Role]:checked')?.dispatchEvent(new Event('change'));
+</script>

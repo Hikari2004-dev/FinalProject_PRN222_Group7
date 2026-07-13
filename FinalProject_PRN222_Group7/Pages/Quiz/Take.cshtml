@@ -1,0 +1,177 @@
+@page "/Quiz/Take/{quizId:int}"
+@model FinalProject_PRN222_Group7.Pages.Quiz.TakeModel
+@{
+    ViewData["Title"] = "Làm quiz - " + Model.Quiz?.Title;
+}
+
+@if (Model.Quiz == null)
+{
+    <div class="empty-state">
+        <div class="empty-icon">❓</div>
+        <div class="empty-title">Quiz không tồn tại</div>
+        <a href="/Quiz" class="btn btn-secondary">Quay lại</a>
+    </div>
+    return;
+}
+
+<!-- Progress Bar -->
+<div class="quiz-progress">
+    <div class="quiz-progress-fill" id="progressBar" style="width:0%"></div>
+</div>
+
+<div style="max-width:680px;margin:0 auto">
+    <!-- Quiz Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px">
+        <div>
+            <div class="quiz-question-number" id="questionNum">Câu 1 / @Model.Quiz.TotalQuestions</div>
+            <h2 style="font-size:1rem;font-weight:600;color:var(--text-primary)">@Model.Quiz.Title</h2>
+        </div>
+        @if (Model.Quiz.TimeLimit > 0)
+        {
+            <div style="font-family:var(--font-mono);font-size:1.1rem;font-weight:700;color:var(--warning);background:var(--warning-muted);border:1px solid rgba(245,158,11,0.2);padding:8px 16px;border-radius:var(--radius)" id="timer">@(Model.Quiz.TimeLimit):00</div>
+        }
+    </div>
+
+    <!-- Question Area -->
+    <div class="card" style="margin-bottom:20px" id="questionCard">
+        <div class="card-body">
+            <div class="quiz-question-text" id="questionText">Đang tải câu hỏi...</div>
+            <div class="quiz-options" id="optionsContainer"></div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <div style="display:flex;justify-content:space-between;align-items:center">
+        <button class="btn btn-secondary" id="prevBtn" onclick="navigate(-1)" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Câu trước
+        </button>
+
+        <div style="display:flex;gap:6px" id="dotNav"></div>
+
+        <button class="btn btn-primary" id="nextBtn" onclick="navigate(1)">
+            Câu tiếp
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+    </div>
+</div>
+
+<!-- Submit Confirmation Modal -->
+<div id="submitModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;max-width:380px;width:100%;text-align:center;box-shadow:var(--shadow-lg)">
+        <div style="font-size:2rem;margin-bottom:12px">📋</div>
+        <h3 style="font-size:1rem;font-weight:700;margin-bottom:8px">Nộp bài?</h3>
+        <p style="font-size:0.875rem;color:var(--text-secondary);margin-bottom:24px" id="submitSummary"></p>
+        <div style="display:flex;gap:10px">
+            <button onclick="document.getElementById('submitModal').style.display='none'" class="btn btn-secondary" style="flex:1">Xem lại</button>
+            <button onclick="submitQuiz()" class="btn btn-primary" style="flex:1">Nộp bài</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+var questions = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+    Model.Quiz.Questions.Select(q => new {
+        id = q.Id,
+        content = q.Content,
+        options = new[] { new {letter="A", text=q.OptionA}, new {letter="B", text=q.OptionB}, new {letter="C", text=q.OptionC}, new {letter="D", text=q.OptionD} }
+    })
+));
+var answers = {};
+var current = 0;
+var attemptId = @Model.AttemptId;
+var totalTime = @Model.Quiz.TimeLimit * 60;
+var timerEl = document.getElementById('timer');
+
+function renderQuestion(idx) {
+    var q = questions[idx];
+    var pct = ((idx + 1) / questions.length) * 100;
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('questionNum').textContent = 'Câu ' + (idx + 1) + ' / ' + questions.length;
+    document.getElementById('questionText').textContent = q.content;
+
+    var opts = document.getElementById('optionsContainer');
+    opts.innerHTML = '';
+    q.options.forEach(function(opt) {
+        var sel = answers[q.id] === opt.letter;
+        var div = document.createElement('div');
+        div.className = 'quiz-option' + (sel ? ' selected' : '');
+        div.innerHTML = '<div class="option-letter">' + opt.letter + '</div><div style="font-size:0.875rem;color:var(--text-primary)">' + opt.text + '</div>';
+        div.onclick = function() { selectAnswer(q.id, opt.letter); };
+        opts.appendChild(div);
+    });
+
+    // Dots
+    var dots = document.getElementById('dotNav');
+    dots.innerHTML = '';
+    questions.forEach(function(_, i) {
+        var d = document.createElement('div');
+        d.style.cssText = 'width:8px;height:8px;border-radius:50%;background:' + (answers[questions[i].id] ? 'var(--accent)' : i === idx ? 'var(--text-muted)' : 'var(--bg-elevated)') + ';border:1px solid var(--border);cursor:pointer;transition:background 0.15s';
+        d.onclick = function() { current = i; renderQuestion(i); updateNav(); };
+        dots.appendChild(d);
+    });
+
+    // Prev/Next buttons
+    document.getElementById('prevBtn').disabled = idx === 0;
+    var nextBtn = document.getElementById('nextBtn');
+    if (idx === questions.length - 1) {
+        nextBtn.textContent = 'Nộp bài';
+        nextBtn.onclick = showSubmitModal;
+        nextBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Nộp bài';
+    } else {
+        nextBtn.innerHTML = 'Câu tiếp <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>';
+        nextBtn.onclick = function() { navigate(1); };
+    }
+}
+
+function selectAnswer(questionId, letter) {
+    answers[questionId] = letter;
+    renderQuestion(current);
+}
+
+function navigate(dir) {
+    current = Math.max(0, Math.min(questions.length - 1, current + dir));
+    renderQuestion(current);
+}
+
+function updateNav() { renderQuestion(current); }
+
+function showSubmitModal() {
+    var answered = Object.keys(answers).length;
+    document.getElementById('submitSummary').textContent = 'Bạn đã trả lời ' + answered + '/' + questions.length + ' câu. Xác nhận nộp bài?';
+    document.getElementById('submitModal').style.display = 'flex';
+}
+
+async function submitQuiz() {
+    document.getElementById('submitModal').style.display = 'none';
+    var token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+    try {
+        var res = await fetch('/api/quiz/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token || '' },
+            body: JSON.stringify({ attemptId: attemptId, answers: answers })
+        });
+        var data = await res.json();
+        window.location.href = '/Quiz/Result/' + data.attemptId;
+    } catch(e) {
+        showAlert('Lỗi nộp bài', 'Không thể gửi kết quả thi trắc nghiệm. Vui lòng thử lại hoặc kiểm tra kết nối mạng của bạn.', '❌');
+    }
+}
+
+// Timer
+if (timerEl && totalTime > 0) {
+    var remaining = totalTime;
+    var timerInterval = setInterval(function() {
+        remaining--;
+        var m = Math.floor(remaining / 60);
+        var s = remaining % 60;
+        timerEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+        if (remaining <= 60) timerEl.style.color = 'var(--danger)';
+        if (remaining <= 0) { clearInterval(timerInterval); submitQuiz(); }
+    }, 1000);
+}
+
+renderQuestion(0);
+</script>
+}
