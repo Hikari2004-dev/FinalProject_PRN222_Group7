@@ -1,0 +1,690 @@
+@page
+@model FinalProject_PRN222_Group7.Pages.Quiz.IndexModel
+@{
+    ViewData["Title"] = "Quiz";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Trắc nghiệm AI</h1>
+        <p class="page-subtitle">Làm quiz được tạo bởi AI từ tài liệu học tập hoặc luyện tập tự chọn</p>
+    </div>
+    <div style="display:flex;gap:10px;">
+        <button class="btn btn-secondary" onclick="openPracticeModal()">
+            🎯 Luyện tập ngẫu nhiên
+        </button>
+        @if (User.IsInRole("Lecturer") || User.IsInRole("Admin"))
+        {
+            <button class="btn btn-secondary" onclick="openQuestionBankModal()">
+                📦 Kho câu hỏi
+            </button>
+            <button class="btn btn-primary" onclick="document.getElementById('generateModal').style.display='flex'">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+                Tạo Quiz AI
+            </button>
+        }
+    </div>
+</div>
+
+@if (TempData["Error"] != null)
+{
+    <div style="background:var(--danger-muted);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius);padding:12px 14px;margin-bottom:20px;font-size:0.875rem;color:var(--danger)">
+        @TempData["Error"]
+    </div>
+}
+
+<!-- Quiz Cards Grid -->
+@if (Model.Quizzes.Any())
+{
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
+        @foreach (var q in Model.Quizzes)
+        {
+            var attempt = Model.UserAttempts.FirstOrDefault(a => a.QuizId == q.Id);
+            <div class="card" style="transition:border-color 0.15s,box-shadow 0.15s;cursor:pointer" onmouseenter="this.style.borderColor='var(--border-hover)';this.style.boxShadow='var(--shadow)'" onmouseleave="this.style.borderColor='var(--border)';this.style.boxShadow=''">
+                <div class="card-body">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
+                        <div style="width:40px;height:40px;background:var(--info-muted);border-radius:10px;display:flex;align-items:center;justify-content:center">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--info)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            @if (attempt != null)
+                            {
+                                <span class="badge @(attempt.Score >= 70 ? "badge-success" : attempt.Score >= 50 ? "badge-warning" : "badge-danger")">
+                                    @attempt.Score%
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-muted">Chưa làm</span>
+                            }
+                            @if (User.IsInRole("Admin") || (User.IsInRole("Lecturer") && q.Course.LecturerId == Model.CurrentUserId))
+                            {
+                                <button type="button" onclick="deleteQuiz(@q.Id, '@Html.Raw(q.Title.Replace("'", "\\'"))', event)" style="background:none;border:none;color:var(--danger);cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius);transition:background 0.2s" onmouseover="this.style.background='var(--danger-muted)'" onmouseout="this.style.background='none'" title="Xóa bài thi này">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                                </button>
+                            }
+                        </div>
+                    </div>
+
+                    <h3 style="font-size:0.95rem;font-weight:600;color:var(--text-primary);margin-bottom:6px">@q.Title</h3>
+                    <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:14px">@q.Course.Name</div>
+
+                    <div style="display:flex;gap:12px;margin-bottom:16px">
+                        <div style="font-size:0.78rem;color:var(--text-secondary);display:flex;align-items:center;gap:4px">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+                            @q.TotalQuestions câu
+                        </div>
+                        @if (q.TimeLimit > 0)
+                        {
+                            <div style="font-size:0.78rem;color:var(--text-secondary);display:flex;align-items:center;gap:4px">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                @q.TimeLimit phút
+                            </div>
+                        }
+                        @if (q.IsAiGenerated)
+                        {
+                            <span class="badge badge-accent" style="font-size:0.65rem">AI</span>
+                        }
+                        else
+                        {
+                            <span class="badge badge-success" style="font-size:0.65rem;background:var(--success-muted);color:var(--success)">Tự ôn</span>
+                        }
+                    </div>
+
+                    @if (attempt == null)
+                    {
+                        <a href="/Quiz/Take/@q.Id" class="btn btn-primary w-full btn-sm">Bắt đầu làm</a>
+                    }
+                    else
+                    {
+                        <div style="display:flex;gap:8px">
+                            <a href="/Quiz/Take/@q.Id" class="btn btn-secondary btn-sm" style="flex:1">Làm lại</a>
+                            <a href="/Quiz/Result/@attempt.Id" class="btn btn-accent btn-sm" style="flex:1;background:var(--info-muted);color:var(--info);border-color:rgba(99,102,241,0.3)">Xem kết quả</a>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="card"><div class="empty-state"><div class="empty-icon">❓</div><div class="empty-title">Chưa có quiz nào</div><div class="empty-hint">Giảng viên có thể tạo quiz AI từ tài liệu học tập hoặc click Luyện tập ngẫu nhiên</div></div></div>
+}
+
+<!-- Generate Quiz Modal -->
+<div id="generateModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:440px;box-shadow:var(--shadow-lg)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+            <h3 style="font-size:1rem;font-weight:700">Tạo Quiz AI</h3>
+            <button onclick="document.getElementById('generateModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.2rem">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+
+        <form method="post" asp-page-handler="GenerateQuiz" onsubmit="submitGenerateQuiz(event)">
+            @Html.AntiForgeryToken()
+            <div style="display:flex;flex-direction:column;gap:16px">
+                <div class="form-group">
+                    <label class="form-label">Tài liệu nguồn</label>
+                    <select name="DocumentId" class="form-control" required>
+                        <option value="">-- Chọn tài liệu --</option>
+                        @foreach (var doc in Model.IndexedDocuments)
+                        {
+                            <option value="@doc.Id">@doc.OriginalName (@doc.Course.Name)</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Số câu hỏi</label>
+                    <select name="NumQuestions" class="form-control">
+                        <option value="5">5 câu</option>
+                        <option value="10" selected>10 câu</option>
+                        <option value="15">15 câu</option>
+                        <option value="20">20 câu</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Tiêu đề quiz</label>
+                    <input type="text" name="Title" class="form-control" placeholder="Ví dụ: Quiz Chương 1 - PRN222" required />
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg w-full">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                    Tạo Quiz với AI
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Random Practice Quiz Modal -->
+<div id="practiceModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:440px;box-shadow:var(--shadow-lg)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+            <h3 style="font-size:1rem;font-weight:700">Luyện tập ngẫu nhiên</h3>
+            <button onclick="document.getElementById('practiceModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.2rem">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+
+        <form id="practiceForm" onsubmit="submitPracticeForm(event)">
+            <div style="display:flex;flex-direction:column;gap:16px">
+                <div class="form-group">
+                    <label class="form-label">Chọn Môn học</label>
+                    <select name="practiceCourseId" id="practiceCourseSelect" class="form-control" required onchange="onPracticeCourseChange()">
+                        <option value="">-- Chọn môn học --</option>
+                        @foreach (var c in Model.Courses)
+                        {
+                            <option value="@c.Id">@c.Name (@c.Code)</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Chọn Chương học <span style="font-size:0.7rem;color:var(--text-muted);font-weight:400">(Bỏ trống = Tất cả chương)</span></label>
+                    <div id="practiceChaptersContainer" style="border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;background:var(--bg-app);">
+                        <div style="color:var(--text-muted);font-size:0.78rem;font-style:italic;">Chọn môn học trước để xem chương.</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Số lượng câu hỏi</label>
+                    <input type="number" name="practiceNumQuestions" id="practiceNumQuestions" class="form-control" min="1" max="50" value="10" required />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Tiêu đề bài ôn tập</label>
+                    <input type="text" name="practiceTitle" id="practiceTitle" class="form-control" placeholder="Ví dụ: Ôn tập ngẫu nhiên PRN222" required />
+                </div>
+
+                <button type="submit" id="practiceSubmitBtn" class="btn btn-primary btn-lg w-full">
+                    🎯 Bắt đầu ôn tập
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Question Bank Modal -->
+<div id="questionBankModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:800px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow-lg)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+            <h3 style="font-size:1.1rem;font-weight:700">Kho câu hỏi môn học</h3>
+            <button onclick="document.getElementById('questionBankModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.2rem">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-bottom:20px;">
+            <div style="flex:1;">
+                <label class="form-label" style="font-size:0.75rem;margin-bottom:4px">Môn học</label>
+                <select id="bankCourseSelect" class="form-control" onchange="onBankFilterChange()">
+                    <!-- Populated by JS -->
+                </select>
+            </div>
+            <div style="flex:1;">
+                <label class="form-label" style="font-size:0.75rem;margin-bottom:4px">Chương học</label>
+                <select id="bankChapterSelect" class="form-control" onchange="loadBankQuestions()">
+                    <option value="">-- Tất cả các chương --</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="border-top:1px solid var(--border);padding-top:16px;">
+            <h4 style="font-size:0.88rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary)">Danh sách câu hỏi trong kho</h4>
+            <div id="bankQuestionsContainer" style="max-height:400px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-right:4px;">
+                <div style="text-align:center;padding:32px;color:var(--text-muted)">
+                    Vui lòng chọn môn học để xem câu hỏi.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Question Bank Item Modal -->
+<div id="editBankQuestionModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:210;align-items:center;justify-content:center">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:24px;width:100%;max-width:500px;box-shadow:var(--shadow-lg)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <h3 style="font-size:0.95rem;font-weight:700">Chỉnh sửa câu hỏi</h3>
+            <button onclick="document.getElementById('editBankQuestionModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+
+        <form id="editBankQuestionForm" onsubmit="submitEditBankQuestion(event)">
+            <input type="hidden" id="editQId" name="id" />
+            <div style="display:flex;flex-direction:column;gap:12px;max-height:450px;overflow-y:auto;padding-right:4px;">
+                <div class="form-group">
+                    <label class="form-label" style="font-size:0.75rem">Nội dung câu hỏi</label>
+                    <textarea id="editQContent" name="content" class="form-control" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" style="font-size:0.75rem">Phương án A</label>
+                    <input type="text" id="editQOptionA" name="optionA" class="form-control" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label" style="font-size:0.75rem">Phương án B</label>
+                    <input type="text" id="editQOptionB" name="optionB" class="form-control" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label" style="font-size:0.75rem">Phương án C</label>
+                    <input type="text" id="editQOptionC" name="optionC" class="form-control" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label" style="font-size:0.75rem">Phương án D</label>
+                    <input type="text" id="editQOptionD" name="optionD" class="form-control" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label" style="font-size:0.75rem">Đáp án đúng</label>
+                    <select id="editQCorrectAnswer" name="correctAnswer" class="form-control" required>
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" style="font-size:0.75rem">Giải thích (Tùy chọn)</label>
+                    <textarea id="editQExplanation" name="explanation" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary w-full" style="margin-top:16px;">Lưu thay đổi</button>
+        </form>
+    </div>
+</div>
+
+<!-- Real Loading Overlay -->
+<div id="quizLoadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(8,12,20,0.85);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:16px;">
+    <div class="spinner-container" style="position:relative;width:80px;height:80px;">
+        <div style="box-sizing:border-box;display:block;position:absolute;width:64px;height:64px;margin:8px;border:6px solid var(--accent);border-radius:50%;animation:lds-ring 1.2s cubic-bezier(0.5,0,0.5,1) infinite;border-color:var(--accent) transparent transparent transparent;"></div>
+        <div style="box-sizing:border-box;display:block;position:absolute;width:64px;height:64px;margin:8px;border:6px solid var(--accent);border-radius:50%;animation:lds-ring 1.2s cubic-bezier(0.5,0,0.5,1) infinite;border-color:var(--accent) transparent transparent transparent;animation-delay:-0.3s;"></div>
+        <div style="box-sizing:border-box;display:block;position:absolute;width:64px;height:64px;margin:8px;border:6px solid var(--accent);border-radius:50%;animation:lds-ring 1.2s cubic-bezier(0.5,0,0.5,1) infinite;border-color:var(--accent) transparent transparent transparent;animation-delay:-0.15s;"></div>
+    </div>
+    <div id="quizLoadingStatus" style="font-size:1rem;font-weight:600;color:var(--text-primary);text-align:center;margin-top:10px;">
+        Đang kết nối Gemini AI và sinh câu hỏi...
+    </div>
+    <div style="font-size:0.75rem;color:var(--text-muted);text-align:center;">
+        Quá trình này có thể mất từ 10 - 20 giây. Vui lòng không đóng trình duyệt hoặc chuyển trang.
+    </div>
+</div>
+
+<style>
+    @@keyframes lds-ring {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+
+<script>
+    var coursesData = {
+        @foreach (var c in Model.Courses)
+        {
+            <text>"@c.Id": {
+                "name": "@Html.Raw(c.Name)",
+                "code": "@Html.Raw(c.Code)",
+                "chapters": [
+                    @foreach (var ch in c.Chapters)
+                    {
+                        <text>{
+                            "id": @ch.Id,
+                            "name": "@Html.Raw(ch.Name)"
+                        },</text>
+                    }
+                ]
+            },</text>
+        }
+    };
+
+    function openPracticeModal() {
+        document.getElementById('practiceCourseSelect').value = '';
+        document.getElementById('practiceChaptersContainer').innerHTML = '<div style="color:var(--text-muted);font-size:0.78rem;font-style:italic;">Chọn môn học trước để xem chương.</div>';
+        document.getElementById('practiceTitle').value = '';
+        document.getElementById('practiceModal').style.display = 'flex';
+    }
+
+    function onPracticeCourseChange() {
+        const courseId = document.getElementById('practiceCourseSelect').value;
+        const container = document.getElementById('practiceChaptersContainer');
+
+        if (!courseId || !coursesData[courseId] || coursesData[courseId].chapters.length === 0) {
+            container.innerHTML = '<div style="color:var(--text-muted);font-size:0.78rem;font-style:italic;">Môn học này chưa có chương học nào.</div>';
+            return;
+        }
+
+        const chapters = coursesData[courseId].chapters;
+        let html = '';
+        chapters.forEach(ch => {
+            html += `
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0;font-size:0.82rem;color:var(--text-primary);">
+                    <input type="checkbox" name="practiceChapterCheckbox" value="${ch.id}"
+                           style="width:14px;height:14px;accent-color:var(--accent);flex-shrink:0;"
+                    />
+                    <span>${ch.name}</span>
+                </label>
+            `;
+        });
+        container.innerHTML = html;
+    }
+
+    function openQuestionBankModal() {
+        const bankCourseSelect = document.getElementById('bankCourseSelect');
+        bankCourseSelect.innerHTML = '<option value="">-- Chọn môn học --</option>';
+
+        Object.keys(coursesData).forEach(key => {
+            const c = coursesData[key];
+            bankCourseSelect.innerHTML += `<option value="${key}">${c.name} (${c.code})</option>`;
+        });
+
+        document.getElementById('bankQuestionsContainer').innerHTML = `
+            <div style="text-align:center;padding:32px;color:var(--text-muted)">
+                Vui lòng chọn môn học để xem câu hỏi.
+            </div>
+        `;
+        document.getElementById('questionBankModal').style.display = 'flex';
+    }
+
+    function onBankFilterChange() {
+        const courseId = document.getElementById('bankCourseSelect').value;
+        const chapterSelect = document.getElementById('bankChapterSelect');
+        chapterSelect.innerHTML = '<option value="">-- Tất cả các chương --</option>';
+
+        if (courseId && coursesData[courseId]) {
+            coursesData[courseId].chapters.forEach(ch => {
+                chapterSelect.innerHTML += `<option value="${ch.id}">${ch.name}</option>`;
+            });
+        }
+        loadBankQuestions();
+    }
+
+    function loadBankQuestions() {
+        const courseId = document.getElementById('bankCourseSelect').value;
+        const chapterId = document.getElementById('bankChapterSelect').value;
+        const container = document.getElementById('bankQuestionsContainer');
+
+        if (!courseId) {
+            container.innerHTML = `
+                <div style="text-align:center;padding:32px;color:var(--text-muted)">
+                    Vui lòng chọn môn học để xem câu hỏi.
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = `
+            <div style="text-align:center;padding:32px;color:var(--text-muted)">
+                Đang tải câu hỏi...
+            </div>
+        `;
+
+        let url = `?handler=BankQuestions&courseId=${courseId}`;
+        if (chapterId) url += `&chapterId=${chapterId}`;
+
+        fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                if (data.questions.length === 0) {
+                    container.innerHTML = `
+                        <div style="text-align:center;padding:32px;color:var(--text-muted)">
+                            Chưa có câu hỏi nào trong kho của môn/chương này.
+                        </div>
+                    `;
+                } else {
+                    let html = '';
+                    data.questions.forEach(q => {
+                        // Tránh ký tự nháy kép lỗi trong stringify
+                        const rawQ = JSON.stringify(q).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+                        html += `
+                            <div style="padding:14px;background:var(--bg-app);border:1px solid var(--border);border-radius:var(--radius);display:flex;flex-direction:column;gap:8px;">
+                                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+                                    <div style="font-weight:600;font-size:0.88rem;color:var(--text-primary);">${q.content}</div>
+                                    <div style="display:flex;gap:6px;flex-shrink:0;">
+                                        <button type="button" class="btn btn-secondary btn-sm" onclick="editBankQuestion('${rawQ}')" style="padding:2px 8px;font-size:0.7rem;height:auto;line-height:1;background:var(--accent-muted);color:var(--accent);border:1px solid rgba(59,130,246,0.25)">Sửa</button>
+                                        <button type="button" class="btn btn-danger btn-sm" onclick="deleteBankQuestion(${q.id})" style="padding:2px 8px;font-size:0.7rem;height:auto;line-height:1;background:var(--danger-muted);color:var(--danger);border:1px solid rgba(239,68,68,0.25)">Xóa</button>
+                                    </div>
+                                </div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:0.75rem;color:var(--text-secondary);margin-top:4px;">
+                                    <div style="${q.correctAnswer === 'A' ? 'color:var(--accent);font-weight:600;' : ''}">A: ${q.optionA}</div>
+                                    <div style="${q.correctAnswer === 'B' ? 'color:var(--accent);font-weight:600;' : ''}">B: ${q.optionB}</div>
+                                    <div style="${q.correctAnswer === 'C' ? 'color:var(--accent);font-weight:600;' : ''}">C: ${q.optionC}</div>
+                                    <div style="${q.correctAnswer === 'D' ? 'color:var(--accent);font-weight:600;' : ''}">D: ${q.optionD}</div>
+                                </div>
+                                ${q.explanation ? `<div style="font-size:0.72rem;color:var(--text-muted);border-top:1px dashed var(--border);padding-top:6px;margin-top:4px;">💡 Giải thích: ${q.explanation}</div>` : ''}
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                }
+            } else {
+                container.innerHTML = `
+                    <div style="text-align:center;padding:32px;color:var(--danger)">
+                        Lỗi: ${data.error}
+                    </div>
+                `;
+            }
+        })
+        .catch(err => {
+            container.innerHTML = `
+                <div style="text-align:center;padding:32px;color:var(--danger)">
+                    Không thể kết nối để lấy câu hỏi.
+                </div>
+            `;
+        });
+    }
+
+    function editBankQuestion(qStr) {
+        const q = JSON.parse(qStr);
+        document.getElementById('editQId').value = q.id;
+        document.getElementById('editQContent').value = q.content;
+        document.getElementById('editQOptionA').value = q.optionA;
+        document.getElementById('editQOptionB').value = q.optionB;
+        document.getElementById('editQOptionC').value = q.optionC;
+        document.getElementById('editQOptionD').value = q.optionD;
+        document.getElementById('editQCorrectAnswer').value = q.correctAnswer;
+        document.getElementById('editQExplanation').value = q.explanation || '';
+
+        document.getElementById('editBankQuestionModal').style.display = 'flex';
+    }
+
+    function submitEditBankQuestion(event) {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const submitBtn = form.querySelector('[type="submit"]');
+        setButtonLoading(submitBtn, 'Đang lưu...');
+        const formData = new FormData(form);
+
+        fetch('?handler=EditBankQuestion', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            resetButton(submitBtn);
+            if (data.success) {
+                showAlert('Cập nhật thành công', 'Đã lưu thay đổi cho câu hỏi này.', '✅', () => {
+                    document.getElementById('editBankQuestionModal').style.display = 'none';
+                    loadBankQuestions();
+                });
+            } else {
+                showAlert('Lỗi', data.error || 'Không thể cập nhật câu hỏi.', '❌');
+            }
+        })
+        .catch(err => {
+            resetButton(submitBtn);
+            showAlert('Lỗi', 'Không thể kết nối với máy chủ.', '❌');
+        });
+    }
+
+    function deleteBankQuestion(id) {
+        showConfirm(
+            'Xóa câu hỏi khỏi kho',
+            'Bạn có chắc chắn muốn xóa câu hỏi này khỏi Kho câu hỏi của môn học?',
+            '🗑️',
+            () => {
+                const formData = new FormData();
+                formData.append('id', id);
+
+                fetch('?handler=DeleteBankQuestion', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                    }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert('Đã xóa', 'Câu hỏi đã được xóa khỏi kho.', '✅', () => {
+                            loadBankQuestions();
+                        });
+                    } else {
+                        showAlert('Lỗi', data.error || 'Không thể xóa câu hỏi.', '❌');
+                    }
+                })
+                .catch(err => {
+                    showAlert('Lỗi kết nối', 'Không thể thực hiện hành động này.', '❌');
+                });
+            },
+            true
+        );
+    }
+
+    function submitGenerateQuiz(event) {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const formData = new FormData(form);
+
+        // Hide generate modal
+        document.getElementById('generateModal').style.display = 'none';
+
+        // Show real loading overlay
+        const loader = document.getElementById('quizLoadingOverlay');
+        const status = document.getElementById('quizLoadingStatus');
+        loader.style.display = 'flex';
+
+        const statusMessages = [
+            "Đang đọc tài liệu & phân tích nội dung...",
+            "Đang kết nối API Gemini 2.5 để soạn câu hỏi...",
+            "Đang lọc trùng câu hỏi và lưu vào Kho câu hỏi...",
+            "Đang tạo bài thi trắc nghiệm AI..."
+        ];
+        let messageIdx = 0;
+        status.innerText = statusMessages[messageIdx];
+        const interval = setInterval(() => {
+            messageIdx = (messageIdx + 1) % statusMessages.length;
+            status.innerText = statusMessages[messageIdx];
+        }, 3000);
+
+        fetch('?handler=GenerateQuiz', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            clearInterval(interval);
+            loader.style.display = 'none';
+            if (data.success) {
+                showAlert('Tạo Quiz thành công', 'Hệ thống đã tạo và lưu các câu hỏi mới vào Kho câu hỏi của môn học!', '✅', () => {
+                    window.location.reload();
+                });
+            } else {
+                showAlert('Lỗi tạo Quiz', data.error || 'Có lỗi xảy ra trong quá trình kết nối AI.', '❌');
+            }
+        })
+        .catch(err => {
+            clearInterval(interval);
+            loader.style.display = 'none';
+            showAlert('Lỗi kết nối', 'Không thể gửi yêu cầu đến máy chủ.', '❌');
+        });
+    }
+
+    function submitPracticeForm(event) {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const submitBtn = document.getElementById('practiceSubmitBtn');
+
+        const courseId = document.getElementById('practiceCourseSelect').value;
+        const numQuestions = document.getElementById('practiceNumQuestions').value;
+        const title = document.getElementById('practiceTitle').value;
+
+        // Collect all checked chapter checkboxes
+        const checkedBoxes = document.querySelectorAll('input[name="practiceChapterCheckbox"]:checked');
+        const chapterIds = Array.from(checkedBoxes).map(cb => cb.value);
+
+        const formData = new FormData();
+        formData.append('courseId', courseId);
+        chapterIds.forEach(id => formData.append('chapterIds', id));
+        formData.append('numQuestions', numQuestions);
+        formData.append('title', title);
+
+        setButtonLoading(submitBtn, 'Đang tạo đề...');
+
+        fetch('?handler=GeneratePracticeQuiz', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            resetButton(submitBtn);
+            if (data.success) {
+                showAlert('Đã tạo đề luyện tập', 'Bắt đầu làm bài thi ngẫu nhiên ngay bây giờ!', '🎯', () => {
+                    window.location.href = `/Quiz/Take/${data.quizId}`;
+                });
+            } else {
+                showAlert('Lỗi', data.error || 'Không thể tạo đề luyện tập ngẫu nhiên.', '❌');
+            }
+        })
+        .catch(err => {
+            resetButton(submitBtn);
+            showAlert('Lỗi kết nối', 'Không thể kết nối với hệ thống.', '❌');
+        });
+    }
+
+    function deleteQuiz(quizId, title, event) {
+        if (event) event.stopPropagation();
+
+        showConfirm(
+            'Xóa bài trắc nghiệm',
+            `Bạn có chắc chắn muốn xóa bài trắc nghiệm "${title}" không? Hành động này sẽ xóa toàn bộ lịch sử thi liên quan và không thể phục hồi!`,
+            '🗑️',
+            () => {
+                const formData = new FormData();
+                formData.append('quizId', quizId);
+
+                fetch('?handler=DeleteQuiz', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                    }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert('Đã xóa bài thi', 'Bài trắc nghiệm đã được xóa thành công.', '✅', () => {
+                            window.location.reload();
+                        });
+                    } else {
+                        showAlert('Lỗi', data.error || 'Không thể xóa bài trắc nghiệm.', '❌');
+                    }
+                })
+                .catch(err => {
+                    showAlert('Lỗi kết nối', 'Không thể kết nối với hệ thống để xóa.', '❌');
+                });
+            },
+            true
+        );
+    }
+</script>
