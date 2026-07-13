@@ -1,0 +1,620 @@
+@page
+@model FinalProject_PRN222_Group7.Pages.Courses.IndexModel
+@{
+    ViewData["Title"] = "Môn học";
+}
+
+<style>
+    /* Tránh Stacking Context đè của Sidebar lên các Modal trong Main Content */
+    #courseDocsModal, #createModal, #editCourseModal {
+        left: var(--sidebar-w) !important;
+        transition: left var(--dur) var(--ease) !important;
+    }
+    
+    .sidebar-collapsed + .main-content #courseDocsModal,
+    .sidebar-collapsed + .main-content #createModal,
+    .sidebar-collapsed + .main-content #editCourseModal {
+        left: var(--sidebar-w-sm) !important;
+    }
+
+    /* Trên Mobile (khi màn hình nhỏ hơn hoặc bằng 1024px, sidebar chuyển sang chế độ overlay) */
+    @@media (max-width: 1024px) {
+        #courseDocsModal, #createModal, #editCourseModal {
+            left: 0 !important;
+        }
+    }
+</style>
+
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Quản lý môn học</h1>
+        <p class="page-subtitle">Xem môn học phụ trách và quản lý tài liệu học tập</p>
+    </div>
+    @if (User.IsInRole("Admin"))
+    {
+        <button class="btn btn-primary" onclick="document.getElementById('createModal').style.display='flex'">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Tạo môn học
+        </button>
+    }
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div style="background:var(--success-muted);border:1px solid rgba(16,185,129,0.25);border-radius:var(--radius);padding:12px 14px;margin-bottom:20px;font-size:0.875rem;color:var(--success)">
+        @TempData["Success"]
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div style="background:var(--danger-muted);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius);padding:12px 14px;margin-bottom:20px;font-size:0.875rem;color:var(--danger)">
+        @TempData["Error"]
+    </div>
+}
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
+    @foreach (var c in Model.Courses)
+    {
+        <div class="card" style="transition:border-color 0.15s,box-shadow 0.15s" onmouseenter="this.style.borderColor='var(--border-hover)';this.style.boxShadow='var(--shadow)'" onmouseleave="this.style.borderColor='var(--border)';this.style.boxShadow=''">
+            <div class="card-body" style="display:flex;flex-direction:column;justify-content:space-between;height:100%;min-height:220px">
+                <div>
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
+                        <div style="width:42px;height:42px;background:var(--accent-muted);border-radius:10px;display:flex;align-items:center;justify-content:center">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+                        </div>
+                        <span class="badge badge-muted" style="font-family:var(--font-mono)">@c.Code</span>
+                    </div>
+                    <h3 style="font-size:0.95rem;font-weight:600;color:var(--text-primary);margin-bottom:6px">@c.Name</h3>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:14px;min-height:36px">@c.Description</p>
+                    
+                    <div style="display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--text-secondary);margin-bottom:8px">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>
+                        <span>Đã có <strong>@c.Documents.Count</strong> tài liệu học tập</span>
+                    </div>
+                </div>
+                
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+                    <div style="font-size:0.75rem;color:var(--text-muted)">
+                        GV: @(c.Lecturer?.FullName ?? "Chưa phân công")
+                    </div>
+                    <div style="display:flex;gap:6px">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="openCourseDocsModal('@c.Id', '@(c.LecturerId == Model.CurrentUserId && User.IsInRole("Lecturer") ? "true" : "false")')" style="padding:4px 10px;font-size:0.72rem;height:auto;line-height:1">
+                            📄 Tài liệu
+                        </button>
+                        @if (User.IsInRole("Admin"))
+                        {
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="openEditCourseModal('@c.Id', '@c.Name', '@c.Code', '@c.Description', '@c.LecturerId')" style="padding:4px 8px;font-size:0.72rem;height:auto;line-height:1">Sửa</button>
+                            <form method="post" asp-page-handler="DeleteCourse" asp-route-id="@c.Id" id="deleteCourseForm-@c.Id" style="display:inline">
+                                @Html.AntiForgeryToken()
+                                <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteCourse('@c.Id', '@Html.Raw(c.Name)')" style="padding:4px 8px;font-size:0.72rem;height:auto;line-height:1;background:var(--danger-muted);color:var(--danger);border:1px solid rgba(239,68,68,0.25)">Xóa</button>
+                            </form>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    @if (!Model.Courses.Any())
+    {
+        <div class="card" style="grid-column:1/-1">
+            <div class="empty-state">
+                <div class="empty-icon">📚</div>
+                <div class="empty-title">Chưa có môn học</div>
+                <div class="empty-hint">Không tìm thấy môn học nào được phân công hoặc tạo mới.</div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Create Modal (Chỉ Admin) -->
+@if (User.IsInRole("Admin"))
+{
+    <div id="createModal" style="display:none;position:fixed;top:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:440px;box-shadow:var(--shadow-lg)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+                <h3 style="font-size:1rem;font-weight:700">Tạo môn học mới</h3>
+                <button onclick="document.getElementById('createModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <form method="post">
+                @Html.AntiForgeryToken()
+                <div style="display:flex;flex-direction:column;gap:16px">
+                    <div class="form-group">
+                        <label class="form-label">Tên môn học</label>
+                        <input type="text" name="Name" class="form-control" placeholder="Lập trình .NET" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mã môn</label>
+                        <input type="text" name="Code" class="form-control" placeholder="PRN222" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mô tả</label>
+                        <textarea name="Description" class="form-control" placeholder="Mô tả ngắn về môn học..." rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Giảng viên phụ trách</label>
+                        <select name="LecturerId" class="form-control" required>
+                            <option value="">-- Chọn giảng viên --</option>
+                            @foreach (var lec in Model.Lecturers)
+                            {
+                                <option value="@lec.Id">@lec.FullName (@lec.Email)</option>
+                            }
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg w-full">Tạo môn học</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Course Modal -->
+    <div id="editCourseModal" style="display:none;position:fixed;top:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:440px;box-shadow:var(--shadow-lg)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+                <h3 style="font-size:1rem;font-weight:700">Chỉnh sửa môn học</h3>
+                <button onclick="document.getElementById('editCourseModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <form method="post" asp-page-handler="EditCourse">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" id="editCourseId" />
+                <div style="display:flex;flex-direction:column;gap:16px">
+                    <div class="form-group">
+                        <label class="form-label">Tên môn học</label>
+                        <input type="text" name="name" id="editCourseName" class="form-control" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mã môn</label>
+                        <input type="text" name="code" id="editCourseCode" class="form-control" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mô tả</label>
+                        <textarea name="description" id="editCourseDescription" class="form-control" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Giảng viên phụ trách</label>
+                        <select name="lecturerId" id="editCourseLecturerId" class="form-control" required>
+                            <option value="">-- Chọn giảng viên --</option>
+                            @foreach (var lec in Model.Lecturers)
+                            {
+                                <option value="@lec.Id">@lec.FullName (@lec.Email)</option>
+                            }
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg w-full">Lưu thay đổi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+}
+
+<!-- Course Documents List & Upload Modal -->
+<div id="courseDocsModal" style="display:none;position:fixed;top:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:700px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow-lg)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+            <div style="display:flex;flex-direction:column;gap:4px">
+                <h3 style="font-size:1.1rem;font-weight:700;color:var(--text-primary)" id="docCourseTitle">Tài liệu môn học</h3>
+                <p style="font-size:0.75rem;color:var(--text-muted)" id="docCourseDesc"></p>
+            </div>
+            <button onclick="closeCourseDocsModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+
+        <div style="margin-bottom:24px">
+            <h4 style="font-size:0.88rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary)">Danh sách chương & tài liệu</h4>
+            <div id="docsList" style="max-height:400px;overflow-y:auto;padding-right:4px;">
+                <!-- Dùng JS render -->
+            </div>
+        </div>
+
+        <!-- Section upload tài liệu trực tiếp -->
+        <div id="docUploadSection" style="border-top:1px solid var(--border);padding-top:20px;display:none">
+            <h4 style="font-size:0.88rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary)">Tải lên tài liệu mới</h4>
+            <form method="post" asp-page-handler="UploadDoc" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="UploadCourseId" id="docCourseId" />
+                <div style="display:flex;flex-direction:column;gap:12px">
+                    <div class="form-group">
+                        <label class="form-label" style="font-size:0.78rem;margin-bottom:6px">Chọn chương học</label>
+                        <select name="UploadChapterId" id="uploadChapterIdSelect" class="form-control" required>
+                            <!-- JS render options -->
+                        </select>
+                    </div>
+                    <div style="border:2px dashed var(--border);border-radius:var(--radius);padding:20px;text-align:center;background:var(--bg-app);cursor:pointer" onclick="document.getElementById('uploadedFileInput').click()">
+                        <span style="font-size:2rem;display:block;margin-bottom:8px">📤</span>
+                        <span style="font-size:0.8rem;color:var(--text-secondary)" id="fileNameLabel">Chọn tệp tin (.txt, .pdf, .docx)</span>
+                        <input type="file" name="UploadedFile" id="uploadedFileInput" style="display:none" accept=".txt,.pdf,.docx" required onchange="updateFileNameLabel(this)" />
+                    </div>
+                    <button type="submit" class="btn btn-primary w-full">Đăng và phân mảnh tài liệu</button>
+                </div>
+            </form>
+
+            <!-- Form tạo chương học mới trực tiếp -->
+            <form method="post" asp-page-handler="AddChapter" style="margin-top:20px;border-top:1px solid var(--border);padding-top:20px;">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="courseId" id="addChapterCourseId" />
+                <h4 style="font-size:0.88rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary)">Tạo chương học mới</h4>
+                <div style="display:flex;gap:10px;">
+                    <input type="text" name="name" placeholder="Tên chương (Ví dụ: Chương 1: Giới thiệu)" class="form-control" style="flex:1;" required />
+                    <button type="submit" class="btn btn-secondary" style="white-space:nowrap;padding:0 16px;">Thêm chương</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
+<script>
+    var coursesData = {
+        @foreach (var c in Model.Courses)
+        {
+            <text>"@c.Id": {
+                "name": "@Html.Raw(c.Name)",
+                "code": "@Html.Raw(c.Code)",
+                "description": "@Html.Raw(c.Description)",
+                "lecturerId": "@c.LecturerId",
+                "chapters": [
+                    @foreach (var ch in c.Chapters)
+                    {
+                        <text>{
+                            "id": @ch.Id,
+                            "name": "@Html.Raw(ch.Name)",
+                            "description": "@Html.Raw(ch.Description)"
+                        },</text>
+                    }
+                ],
+                "docs": [
+                    @foreach (var d in c.Documents)
+                    {
+                        <text>{
+                            "id": @d.Id,
+                            "name": "@Html.Raw(d.OriginalName)",
+                            "size": @d.FileSizeBytes,
+                            "status": "@d.Status",
+                            "chapterId": @(d.ChapterId.HasValue ? d.ChapterId.Value.ToString() : "null"),
+                            "uploadedAt": "@(d.IndexedAt.HasValue ? d.IndexedAt.Value.ToString("dd/MM/yyyy HH:mm") : d.UploadedAt.ToString("dd/MM/yyyy HH:mm"))"
+                        },</text>
+                    }
+                ]
+            },</text>
+        }
+    };
+
+    var currentUserId = "@Model.CurrentUserId";
+    var isAdmin = @(User.IsInRole("Admin").ToString().ToLower());
+
+    function confirmDeleteCourse(courseId, name) {
+        showConfirm(
+            'Xóa môn học',
+            `Bạn có chắc chắn muốn xóa môn học "${name}"? Hành động này sẽ xóa toàn bộ tài liệu và bài thi trắc nghiệm liên quan và không thể khôi phục!`,
+            '🗑️',
+            () => {
+                document.getElementById(`deleteCourseForm-${courseId}`).submit();
+            },
+            true
+        );
+    }
+
+    function confirmDeleteDoc(docId, name) {
+        showConfirm(
+            'Xóa tài liệu',
+            `Bạn có chắc chắn muốn xóa tài liệu "${name}" khỏi hệ thống môn học?`,
+            '🗑️',
+            () => {
+                document.getElementById(`deleteDocForm-${docId}`).submit();
+            },
+            true
+        );
+    }
+
+    function confirmReindexDoc(docId, name) {
+        showConfirm(
+            'Lập chỉ mục lại',
+            `Bạn có chắc chắn muốn phân mảnh và lập chỉ mục lại tài liệu "${name}"?`,
+            '🔄',
+            () => {
+                document.getElementById(`reindexDocForm-${docId}`).submit();
+            },
+            false
+        );
+    }
+    // ──────────────────────────────────────────────────────────────────
+
+    function openEditCourseModal(id, name, code, description, lecturerId) {
+        document.getElementById('editCourseId').value = id;
+        document.getElementById('editCourseName').value = name;
+        document.getElementById('editCourseCode').value = code;
+        document.getElementById('editCourseDescription').value = description || "";
+        
+        var selectLec = document.getElementById('editCourseLecturerId');
+        if (selectLec) {
+            selectLec.value = lecturerId || "";
+        }
+        
+        document.getElementById('editCourseModal').style.display = 'flex';
+    }
+
+    function renderDocRow(doc, canManage, lecturerId) {
+        const statusClass = doc.status === 'Indexed' ? 'badge-success' : doc.status === 'Processing' ? 'badge-warning' : doc.status === 'Failed' ? 'badge-danger' : 'badge-muted';
+        return `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:var(--bg-card);border:1px solid rgba(99,130,185,0.06);border-radius:var(--radius);gap:12px;margin-bottom:6px;">
+                <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;">
+                    <span style="font-size:1.2rem;flex-shrink:0;">📄</span>
+                    <div style="min-width:0;flex:1;">
+                        <div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${doc.name}">${doc.name}</div>
+                        <div style="font-size:0.68rem;color:var(--text-muted);margin-top:2px;">Size: ${formatBytes(doc.size)} | Ngày: ${doc.uploadedAt || 'N/A'}</div>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                    <span class="badge ${statusClass}" style="font-size:0.65rem;padding:2px 6px;">${doc.status}</span>
+                    <a href="/Documents/Detail/${doc.id}" class="btn btn-secondary btn-sm" style="padding:3px 6px;font-size:0.68rem;height:auto;line-height:1;">Đọc</a>
+                    
+                    ${canManage ? `
+                    <form method="post" action="?handler=ReindexDocument" id="reindexDocForm-${doc.id}" style="display:inline;" onsubmit="return false;">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="docId" value="${doc.id}" />
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="confirmReindexDoc(${doc.id}, '${doc.name}')" style="padding:3px 6px;font-size:0.68rem;height:auto;line-height:1;background:var(--accent-muted);color:var(--accent);border:1px solid rgba(59,130,246,0.25)">Index lại</button>
+                    </form>
+                    
+                    <form method="post" action="?handler=DeleteDocument" id="deleteDocForm-${doc.id}" style="display:inline;" onsubmit="return false;">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="docId" value="${doc.id}" />
+                        <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteDoc(${doc.id}, '${doc.name}')" style="padding:3px 6px;font-size:0.68rem;height:auto;line-height:1;background:var(--danger-muted);color:var(--danger);border:1px solid rgba(239,68,68,0.25)">Xóa</button>
+                    </form>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    function confirmDeleteChapter(chapterId, name) {
+        showConfirm(
+            'Xóa chương học',
+            `Bạn có chắc chắn muốn xóa chương học "${name}" không? Toàn bộ tài liệu thuộc chương này sẽ được đưa vào phần tài liệu chung.`,
+            '🗑️',
+            () => {
+                const form = document.getElementById(`deleteChapterForm-${chapterId}`);
+                form.onsubmit = null; 
+                form.submit();
+            },
+            true
+        );
+    }
+
+    function openCourseDocsModal(courseId, canUpload) {
+        sessionStorage.setItem('activeCourseDocsId', courseId);
+        sessionStorage.setItem('activeCourseDocsCanUpload', canUpload);
+
+        const data = coursesData[courseId];
+        document.getElementById('docCourseId').value = courseId;
+        document.getElementById('docCourseTitle').innerText = 'Môn học: ' + data.name + ' (' + data.code + ')';
+        document.getElementById('docCourseDesc').innerText = data.description || "Không có mô tả.";
+
+        // Bật tắt vùng upload và quản lý chương
+        const uploadSection = document.getElementById('docUploadSection');
+        if (canUpload === 'true') {
+            uploadSection.style.display = 'block';
+            
+            // Populate chapters select list for uploading
+            const uploadChapterSelect = document.getElementById('uploadChapterIdSelect');
+            if (uploadChapterSelect) {
+                uploadChapterSelect.innerHTML = '<option value="">-- Chọn Chương học --</option>';
+                data.chapters.forEach(ch => {
+                    uploadChapterSelect.innerHTML += `<option value="${ch.id}">${ch.name}</option>`;
+                });
+            }
+            
+            // Populate Course ID for add chapter form
+            const addChapterCourseId = document.getElementById('addChapterCourseId');
+            if (addChapterCourseId) {
+                addChapterCourseId.value = courseId;
+            }
+        } else {
+            uploadSection.style.display = 'none';
+        }
+
+        // Reset file input
+        document.getElementById('uploadedFileInput').value = '';
+        document.getElementById('fileNameLabel').innerText = 'Chọn tệp tin (.txt, .pdf, .docx)';
+
+        // Render tài liệu gom nhóm theo chương
+        const docsList = document.getElementById('docsList');
+        docsList.innerHTML = '';
+
+        const canManage = isAdmin || (data.lecturerId === currentUserId);
+
+        if (data.chapters.length === 0 && data.docs.length === 0) {
+            docsList.innerHTML = `
+                <div style="text-align:center;padding:24px;color:var(--text-muted)">
+                    <span style="font-size:2rem;display:block;margin-bottom:8px">📄</span>
+                    <span style="font-size:0.8rem">Chưa có chương học và tài liệu nào thuộc môn học này.</span>
+                </div>
+            `;
+            document.getElementById('courseDocsModal').style.display = 'flex';
+            return;
+        }
+
+        let html = '<div style="display:flex;flex-direction:column;gap:16px;">';
+
+        // Render từng chương
+        data.chapters.forEach(ch => {
+            const chDocs = data.docs.filter(d => d.chapterId === ch.id);
+            
+            html += `
+                <div style="border:1px solid var(--border);border-radius:var(--radius);padding:14px;background:var(--bg-app);">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;border-bottom:1px solid rgba(99,130,185,0.08);padding-bottom:8px;gap:10px;">
+                        <h5 style="font-size:0.88rem;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;margin:0;">
+                            📂 ${ch.name}
+                        </h5>
+                        ${canManage ? `
+                        <form method="post" action="?handler=DeleteChapter" id="deleteChapterForm-${ch.id}" style="display:inline;margin:0;" onsubmit="return false;">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="chapterId" value="${ch.id}" />
+                            <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteChapter(${ch.id}, '${ch.name.replace(/'/g, "\\'")}')" style="padding:2px 6px;font-size:0.68rem;height:auto;line-height:1;background:var(--danger-muted);color:var(--danger);border:1px solid rgba(239,68,68,0.25)">
+                                Xóa chương
+                            </button>
+                        </form>
+                        ` : ''}
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:2px;">
+            `;
+
+            if (chDocs.length === 0) {
+                html += `
+                    <div style="padding:8px;text-align:center;color:var(--text-muted);font-size:0.75rem;font-style:italic;">
+                        Chưa có tài liệu trong chương này.
+                    </div>
+                `;
+            } else {
+                chDocs.forEach(doc => {
+                    html += renderDocRow(doc, canManage, data.lecturerId);
+                });
+            }
+
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+
+        // Render tài liệu không phân vào chương
+        const generalDocs = data.docs.filter(d => d.chapterId === null);
+        if (generalDocs.length > 0 || data.chapters.length === 0) {
+            html += `
+                <div style="border:1px solid var(--border);border-radius:var(--radius);padding:14px;background:var(--bg-app);">
+                    <div style="margin-bottom:12px;border-bottom:1px solid rgba(99,130,185,0.08);padding-bottom:8px;">
+                        <h5 style="font-size:0.88rem;font-weight:700;color:var(--text-primary);margin:0;">
+                            📄 Tài liệu chung (Chưa phân chương)
+                        </h5>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:2px;">
+            `;
+
+            if (generalDocs.length === 0) {
+                html += `
+                    <div style="padding:8px;text-align:center;color:var(--text-muted);font-size:0.75rem;font-style:italic;">
+                        Không có tài liệu chung nào.
+                    </div>
+                `;
+            } else {
+                generalDocs.forEach(doc => {
+                    html += renderDocRow(doc, canManage, data.lecturerId);
+                });
+            }
+
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        html += '</div>';
+        docsList.innerHTML = html;
+
+        document.getElementById('courseDocsModal').style.display = 'flex';
+    }
+
+    function closeCourseDocsModal() {
+        document.getElementById('courseDocsModal').style.display = 'none';
+        sessionStorage.removeItem('activeCourseDocsId');
+        sessionStorage.removeItem('activeCourseDocsCanUpload');
+    }
+
+    function updateFileNameLabel(input) {
+        if (input.files && input.files[0]) {
+            document.getElementById('fileNameLabel').innerText = 'Đã chọn: ' + input.files[0].name;
+        } else {
+            document.getElementById('fileNameLabel').innerText = 'Chọn tệp tin (.txt, .pdf, .docx)';
+        }
+    }
+
+    function formatBytes(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024.0).toFixed(1) + ' KB';
+        return (bytes / 1024.0 / 1024.0).toFixed(1) + ' MB';
+    }
+
+    // Khôi phục trạng thái Modal và Lắng nghe SignalR
+    window.addEventListener('DOMContentLoaded', () => {
+        const activeCourseId = sessionStorage.getItem('activeCourseDocsId');
+        const canUpload = sessionStorage.getItem('activeCourseDocsCanUpload');
+        if (activeCourseId && canUpload) {
+            if (coursesData[activeCourseId]) {
+                openCourseDocsModal(activeCourseId, canUpload);
+            } else {
+                sessionStorage.removeItem('activeCourseDocsId');
+                sessionStorage.removeItem('activeCourseDocsCanUpload');
+            }
+        }
+
+        // Tích hợp SignalR Real-time update
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/lmsHub")
+            .build();
+
+        connection.on("ReceiveCourseUpdate", () => {
+            window.location.reload();
+        });
+
+        connection.start().catch(err => console.error(err.toString()));
+
+        // ─── Confirm & Loading cho các form thao tác ───────────────────────────
+
+        // EditCourse → cần confirm trước khi lưu
+        const editCourseForm = document.querySelector('#editCourseModal form');
+        if (editCourseForm) {
+            editCourseForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const form = this;
+                const name = document.getElementById('editCourseName').value;
+                showConfirm(
+                    'Xác nhận lưu thay đổi',
+                    `Bạn có chắc muốn lưu thay đổi cho môn học "${name}"?`,
+                    '✏️',
+                    () => {
+                        const btn = form.querySelector('[type="submit"]');
+                        setButtonLoading(btn, 'Đang lưu...');
+                        form.submit();
+                    },
+                    false
+                );
+            });
+        }
+
+        // CreateCourse → không cần confirm, chỉ loading
+        const createCourseForm = document.querySelector('#createModal form');
+        if (createCourseForm) {
+            createCourseForm.addEventListener('submit', function() {
+                const btn = this.querySelector('[type="submit"]');
+                setButtonLoading(btn, 'Đang tạo...');
+            });
+        }
+
+        // UploadDoc form → loading khi upload
+        const uploadDocForm = document.querySelector('form[asp-page-handler="UploadDoc"], form[action*="UploadDoc"]');
+        // Note: vì form dùng asp-page-handler, dùng ID cha để tìm form
+        const docUploadSection = document.getElementById('docUploadSection');
+        if (docUploadSection) {
+            const uploadForm = docUploadSection.querySelector('form');
+            if (uploadForm) {
+                uploadForm.addEventListener('submit', function() {
+                    const btn = this.querySelector('[type="submit"]');
+                    setButtonLoading(btn, 'Đang tải lên...');
+                });
+            }
+
+            // AddChapter form → loading
+            const forms = docUploadSection.querySelectorAll('form');
+            if (forms.length > 1) {
+                forms[1].addEventListener('submit', function() {
+                    const btn = this.querySelector('[type="submit"]');
+                    setButtonLoading(btn, 'Đang thêm...');
+                });
+            }
+        }
+    });
+</script>
