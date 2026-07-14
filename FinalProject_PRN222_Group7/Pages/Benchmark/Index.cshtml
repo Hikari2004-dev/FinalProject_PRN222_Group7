@@ -112,7 +112,7 @@
                             <td style="font-family:var(--font-mono)">@((r.ContextRecall * 100).ToString("F0"))%</td>
                             <td style="font-family:var(--font-mono);font-weight:700" class="text-primary">@((r.OverallAccuracy * 100).ToString("F0"))%</td>
                             <td>
-                                <button class="btn btn-secondary btn-sm" onclick="showAlert('Đánh giá RAG', 'Đang hiển thị biểu đồ so sánh trực quan ở bảng thống kê phía trên!', '📊')">Xem chi tiết</button>
+                                <a asp-page="/Benchmark/Detail" asp-route-id="@r.Id" class="btn btn-secondary btn-sm">Xem chi tiết</a>
                             </td>
                         </tr>
                     }

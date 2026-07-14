@@ -1,0 +1,123 @@
+@page
+@model FinalProject_PRN222_Group7.Pages.Benchmark.DetailModel
+@{
+    ViewData["Title"] = "Benchmark Detail";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Benchmark Detail</h1>
+        <p class="page-subtitle">Chi tiết kết quả chạy benchmark</p>
+    </div>
+    <a asp-page="/Benchmark/Index" class="btn btn-secondary">Quay lại Benchmark</a>
+</div>
+
+@if (Model.Run == null)
+{
+    <div class="card">
+        <div class="empty-state">
+            <div class="empty-icon">❌</div>
+            <div class="empty-title">Không tìm thấy kết quả benchmark</div>
+            <div class="empty-hint">Kết quả bạn yêu cầu không tồn tại hoặc đã bị xóa.</div>
+            <a asp-page="/Benchmark/Index" class="btn btn-secondary">Quay lại Benchmark</a>
+        </div>
+    </div>
+}
+else
+{
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px">
+
+        <!-- General Information -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Thông tin chung</span>
+            </div>
+            <div class="card-body">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                    <div>
+                        <div style="font-size:0.75rem;color:var(--text-muted)">Tên cấu hình</div>
+                        <div style="font-size:0.875rem;font-weight:600">@Model.Run.Name</div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.75rem;color:var(--text-muted)">Thời gian chạy</div>
+                        <div style="font-size:0.875rem;font-weight:600">@Model.Run.RunAt.ToString("dd/MM/yyyy HH:mm")</div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.75rem;color:var(--text-muted)">Người chạy</div>
+                        <div style="font-size:0.875rem;font-weight:600">@Model.Run.RunById</div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.75rem;color:var(--text-muted)">Embedding Model</div>
+                        <div style="font-size:0.875rem;font-weight:600">@Model.Run.EmbeddingModel</div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.75rem;color:var(--text-muted)">Chiến lược chunking</div>
+                        <div style="font-size:0.875rem;font-weight:600">@Model.Run.ChunkingStrategy</div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.75rem;color:var(--text-muted)">Chunk Size</div>
+                        <div style="font-size:0.875rem;font-weight:600;font-family:var(--font-mono)">@Model.Run.ChunkSize</div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.75rem;color:var(--text-muted)">Chunk Overlap</div>
+                        <div style="font-size:0.875rem;font-weight:600;font-family:var(--font-mono)">@Model.Run.ChunkOverlap</div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.75rem;color:var(--text-muted)">Số câu hỏi test</div>
+                        <div style="font-size:0.875rem;font-weight:600">@Model.Run.TotalQuestions câu</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Evaluation Metrics -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Đánh giá hiệu năng</span>
+            </div>
+            <div class="card-body">
+                <div style="display:flex;flex-direction:column;gap:16px">
+                    @foreach (var (lbl, val, color) in new[] {
+                        ("Faithfulness (Độ trung thực của AI)", Model.Run.Faithfulness, "success"),
+                        ("Answer Relevancy (Độ phù hợp của câu trả lời)", Model.Run.AnswerRelevancy, "accent"),
+                        ("Context Precision (Độ chuẩn xác của ngữ cảnh)", Model.Run.ContextPrecision, "info"),
+                        ("Context Recall (Độ phủ của ngữ cảnh)", Model.Run.ContextRecall, "warning"),
+                        ("Overall Accuracy (Độ chính xác tổng quan)", Model.Run.OverallAccuracy, "accent")
+                    })
+                    {
+                        var pct = (int)(val * 100);
+                        <div>
+                            <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:6px">
+                                <span style="font-weight:500;color:var(--text-secondary)">@lbl</span>
+                                <span style="font-family:var(--font-mono);font-weight:700;color:var(--@color)">@pct%</span>
+                            </div>
+                            <div class="metric-bar">
+                                <div class="metric-bar-fill" style="width:@pct%;background:var(--@color)"></div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Raw Results -->
+    <div class="card">
+        <div class="card-header"><span class="card-title">Kết quả chi tiết</span></div>
+        <div class="card-body">
+            @if (string.IsNullOrEmpty(Model.Run.ResultsJson))
+            {
+                <div class="empty-state" style="padding:24px 0">
+                    <div class="empty-icon">📄</div>
+                    <div class="empty-title">Không có kết quả chi tiết</div>
+                    <div class="empty-hint">Lần chạy này chưa lưu kết quả chi tiết.</div>
+                    <div style="font-size:0.8rem;color:var(--text-muted);margin-top:6px">No detailed benchmark result is available.</div>
+                </div>
+            }
+            else
+            {
+                <pre style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);padding:16px;overflow:auto;font-size:0.8rem;line-height:1.5;white-space:pre-wrap;word-break:break-word">@Model.Run.ResultsJson</pre>
+            }
+        </div>
+    </div>
+}
