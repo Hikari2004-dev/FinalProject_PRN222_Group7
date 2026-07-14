@@ -2,11 +2,13 @@ using FinalProject_PRN222_Group7.DAL.Data;
 using FinalProject_PRN222_Group7.DAL.Entities;
 using FinalProject_PRN222_Group7.DAL.Repositories;
 using Microsoft.EntityFrameworkCore;
+using PayOS;
+using PayOS.Models.V2.PaymentRequests;
+using PayOS.Models.Webhooks;
 using System.Text.Json;
 
 namespace FinalProject_PRN222_Group7.BLL.Services
 {
-    // ============ QUIZ SERVICE ============
     public interface IQuizService
     {
         Task<IEnumerable<Quiz>> GetByCourseAsync(int courseId);
@@ -41,7 +43,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
             _context.Quizzes.Add(quiz);
             await _context.SaveChangesAsync();
 
-            int index = 0;
+            var index = 0;
             foreach (var q in questions)
             {
                 q.QuizId = quiz.Id;
@@ -67,11 +69,13 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                 .FirstOrDefaultAsync(a => a.Id == attemptId)
                 ?? throw new InvalidOperationException("Attempt not found");
 
-            int correct = 0;
+            var correct = 0;
             foreach (var q in attempt.Quiz.Questions)
             {
-                if (answers.TryGetValue(q.Id, out char selected) && selected == q.CorrectAnswer)
+                if (answers.TryGetValue(q.Id, out var selected) && selected == q.CorrectAnswer)
+                {
                     correct++;
+                }
             }
 
             attempt.CorrectAnswers = correct;
@@ -96,23 +100,35 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                 .Include(q => q.Questions)
                 .Include(q => q.Attempts)
                 .FirstOrDefaultAsync(q => q.Id == id);
-            if (quiz != null)
+            if (quiz == null)
             {
-                _context.Questions.RemoveRange(quiz.Questions);
-                _context.QuizAttempts.RemoveRange(quiz.Attempts);
-                _context.Quizzes.Remove(quiz);
-                await _context.SaveChangesAsync();
+                return;
             }
+
+            _context.Questions.RemoveRange(quiz.Questions);
+            _context.QuizAttempts.RemoveRange(quiz.Attempts);
+            _context.Quizzes.Remove(quiz);
+            await _context.SaveChangesAsync();
         }
     }
 
-    // ============ PAYMENT SERVICE ============
+    public record PaymentCheckoutResult(Payment Payment, string CheckoutUrl);
+
     public interface IPaymentService
     {
         Task<IEnumerable<Package>> GetPackagesAsync();
+        Task<IEnumerable<CreditPackage>> GetCreditPackagesAsync();
         Task<UserPackage?> GetUserPackageAsync(string userId);
-        Task<Payment> CreatePaymentAsync(string userId, int packageId);
-        Task<Payment> CompletePaymentAsync(int paymentId);
+        Task<UserSubscription?> GetUserSubscriptionAsync(string userId);
+        Task<WalletBalanceSummary> GetWalletBalanceAsync(string userId, IEnumerable<string>? roles = null);
+        Task<PaymentCheckoutResult> CreatePaymentAsync(string userId, int packageId, string baseUrl);
+        Task<PaymentCheckoutResult> CreateCreditTopUpAsync(string userId, int creditPackageId, string baseUrl);
+        Task<Payment?> GetPaymentForUserAsync(int paymentId, string userId);
+        Task<Payment?> GetPaymentByGatewayOrderCodeAsync(string gatewayOrderCode);
+        Task<Payment> CompletePaymentAsync(int paymentId, string userId);
+        Task<Payment> CancelPaymentAsync(int paymentId, string userId);
+        Task<Payment> ConfirmPaymentAsync(Webhook webhook);
+        Task RegisterWebhookAsync(string webhookUrl);
         Task<IEnumerable<Payment>> GetUserPaymentsAsync(string userId);
         Task<IEnumerable<Payment>> GetAllPaymentsAsync();
     }
@@ -121,69 +137,222 @@ namespace FinalProject_PRN222_Group7.BLL.Services
     {
         private readonly AppDbContext _context;
         private readonly IPaymentRepository _paymentRepo;
+        private readonly PayOSClient _payOS;
+        private readonly ISubscriptionService _subscriptionService;
+        private readonly ICreditWalletService _walletService;
 
-        public PaymentService(AppDbContext context, IPaymentRepository paymentRepo)
+        public PaymentService(
+            AppDbContext context,
+            IPaymentRepository paymentRepo,
+            PayOSClient payOS,
+            ISubscriptionService subscriptionService,
+            ICreditWalletService walletService)
         {
             _context = context;
             _paymentRepo = paymentRepo;
+            _payOS = payOS;
+            _subscriptionService = subscriptionService;
+            _walletService = walletService;
         }
 
         public async Task<IEnumerable<Package>> GetPackagesAsync()
-            => await _context.Packages.Where(p => p.IsActive).OrderBy(p => p.Price).ToListAsync();
+            => await _context.Packages
+                .Where(p => p.IsActive && !p.IsFree)
+                .Include(p => p.Features.OrderBy(f => f.DisplayOrder))
+                .OrderBy(p => p.DisplayOrder)
+                .ToListAsync();
 
-        public async Task<UserPackage?> GetUserPackageAsync(string userId)
-            => await _context.UserPackages
-                .Include(up => up.Package)
-                .FirstOrDefaultAsync(up => up.UserId == userId && up.IsActive && up.EndDate > DateTime.UtcNow);
+        public async Task<IEnumerable<CreditPackage>> GetCreditPackagesAsync()
+            => await _context.CreditPackages
+                .Where(p => p.IsActive)
+                .OrderBy(p => p.DisplayOrder)
+                .ToListAsync();
 
-        public async Task<Payment> CreatePaymentAsync(string userId, int packageId)
+        public Task<UserPackage?> GetUserPackageAsync(string userId)
+            => _subscriptionService.GetLegacyCompatiblePackageAsync(userId);
+
+        public Task<UserSubscription?> GetUserSubscriptionAsync(string userId)
+            => _subscriptionService.GetActiveSubscriptionAsync(userId);
+
+        public Task<WalletBalanceSummary> GetWalletBalanceAsync(string userId, IEnumerable<string>? roles = null)
+            => _walletService.GetBalanceAsync(userId, roles);
+
+        public async Task<PaymentCheckoutResult> CreatePaymentAsync(string userId, int packageId, string baseUrl)
         {
-            var pkg = await _context.Packages.FindAsync(packageId)
+            var package = await _context.Packages.FirstOrDefaultAsync(p => p.Id == packageId && p.IsActive)
                 ?? throw new InvalidOperationException("Package not found");
-
-            var invoiceNumber = $"INV-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..8].ToUpper()}";
 
             var payment = new Payment
             {
                 UserId = userId,
-                PackageId = packageId,
-                Amount = pkg.Price,
-                InvoiceNumber = invoiceNumber,
-                Status = PaymentStatus.Pending
+                PackageId = package.Id,
+                Amount = package.Price,
+                PurchaseType = PaymentPurchaseType.Subscription,
+                PaymentMethod = package.Price <= 0 ? PaymentMethod.Internal : PaymentMethod.PayOS,
+                InvoiceNumber = BuildInvoiceNumber("SUB"),
+                Status = package.Price <= 0 ? PaymentStatus.Completed : PaymentStatus.Pending,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                ExpiredAt = DateTime.UtcNow.AddMinutes(30)
             };
             _context.Payments.Add(payment);
             await _context.SaveChangesAsync();
+
+            if (package.Price <= 0)
+            {
+                await GrantSubscriptionAsync(payment);
+                return new PaymentCheckoutResult(payment, $"{baseUrl}/Packages/Success?paymentId={payment.Id}");
+            }
+
+            return await CreateCheckoutAsync(payment, $"Mua goi {package.Name}", baseUrl);
+        }
+
+        public async Task<PaymentCheckoutResult> CreateCreditTopUpAsync(string userId, int creditPackageId, string baseUrl)
+        {
+            var creditPackage = await _context.CreditPackages.FirstOrDefaultAsync(p => p.Id == creditPackageId && p.IsActive)
+                ?? throw new InvalidOperationException("Credit package not found");
+
+            var payment = new Payment
+            {
+                UserId = userId,
+                CreditPackageId = creditPackage.Id,
+                Amount = creditPackage.Price,
+                PurchaseType = PaymentPurchaseType.CreditTopUp,
+                PaymentMethod = PaymentMethod.PayOS,
+                InvoiceNumber = BuildInvoiceNumber("TOPUP"),
+                Status = PaymentStatus.Pending,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                ExpiredAt = DateTime.UtcNow.AddMinutes(30)
+            };
+            _context.Payments.Add(payment);
+            await _context.SaveChangesAsync();
+
+            return await CreateCheckoutAsync(payment, $"Nap {creditPackage.Credits} credit", baseUrl);
+        }
+
+        public async Task<Payment?> GetPaymentForUserAsync(int paymentId, string userId)
+            => await _context.Payments
+                .Include(p => p.Package)
+                .Include(p => p.CreditPackage)
+                .FirstOrDefaultAsync(p => p.Id == paymentId && p.UserId == userId);
+
+        public async Task<Payment?> GetPaymentByGatewayOrderCodeAsync(string gatewayOrderCode)
+            => await _context.Payments
+                .Include(p => p.Package)
+                .Include(p => p.CreditPackage)
+                .FirstOrDefaultAsync(p => p.GatewayOrderCode == gatewayOrderCode);
+
+        public async Task<Payment> CompletePaymentAsync(int paymentId, string userId)
+        {
+            var payment = await GetPaymentForUserAsync(paymentId, userId)
+                ?? throw new InvalidOperationException("Payment not found");
+
             return payment;
         }
 
-        public async Task<Payment> CompletePaymentAsync(int paymentId)
+        public async Task<Payment> CancelPaymentAsync(int paymentId, string userId)
         {
-            var payment = await _context.Payments.Include(p => p.Package)
-                .FirstOrDefaultAsync(p => p.Id == paymentId)
+            var payment = await GetPaymentForUserAsync(paymentId, userId)
                 ?? throw new InvalidOperationException("Payment not found");
 
-            payment.Status = PaymentStatus.Completed;
-            payment.PaidAt = DateTime.UtcNow;
-            payment.TransactionId = $"TXN-{Guid.NewGuid().ToString()[..12].ToUpper()}";
-
-            // Deactivate old package
-            var oldPkg = await _context.UserPackages
-                .FirstOrDefaultAsync(up => up.UserId == payment.UserId && up.IsActive);
-            if (oldPkg != null) { oldPkg.IsActive = false; }
-
-            // Create new UserPackage
-            var userPkg = new UserPackage
+            if (payment.Status == PaymentStatus.Pending || payment.Status == PaymentStatus.Processing)
             {
-                UserId = payment.UserId,
-                PackageId = payment.PackageId,
-                StartDate = DateTime.UtcNow,
-                EndDate = DateTime.UtcNow.AddMonths(1),
-                RemainingQueries = payment.Package.MonthlyAiQueries == -1 ? int.MaxValue : payment.Package.MonthlyAiQueries,
-                IsActive = true
-            };
-            _context.UserPackages.Add(userPkg);
-            await _context.SaveChangesAsync();
+                payment.Status = PaymentStatus.Cancelled;
+                payment.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+
             return payment;
+        }
+
+        public async Task<Payment> ConfirmPaymentAsync(Webhook webhook)
+        {
+            var rawPayload = JsonSerializer.Serialize(webhook);
+            var payment = await TryResolvePaymentFromWebhookAsync(webhook);
+            var callbackLog = new PaymentCallbackLog
+            {
+                PaymentId = payment?.Id,
+                GatewayProvider = "PayOS",
+                GatewayOrderCode = ResolveOrderCode(webhook),
+                Signature = ResolveSignature(webhook),
+                RawPayload = rawPayload,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.PaymentCallbackLogs.Add(callbackLog);
+            await _context.SaveChangesAsync();
+
+            try
+            {
+                var verified = await _payOS.Webhooks.VerifyAsync(webhook);
+                callbackLog.IsSignatureValid = true;
+
+                var gatewayOrderCode = verified.OrderCode.ToString();
+                payment ??= await _context.Payments
+                    .Include(p => p.Package)
+                    .Include(p => p.CreditPackage)
+                    .FirstOrDefaultAsync(p => p.GatewayOrderCode == gatewayOrderCode);
+
+                if (payment == null)
+                {
+                    callbackLog.ErrorMessage = "Payment not found for webhook order code.";
+                    await _context.SaveChangesAsync();
+                    throw new InvalidOperationException("Payment not found");
+                }
+
+                if (payment.Status == PaymentStatus.Completed)
+                {
+                    callbackLog.IsProcessed = true;
+                    callbackLog.ProcessedAt = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+                    return payment;
+                }
+
+                payment.Status = PaymentStatus.Processing;
+                payment.UpdatedAt = DateTime.UtcNow;
+                payment.TransactionId = verified.Reference;
+                payment.GatewayOrderCode = gatewayOrderCode;
+                payment.MetadataJson = JsonSerializer.Serialize(verified);
+                await _context.SaveChangesAsync();
+
+                switch (payment.PurchaseType)
+                {
+                    case PaymentPurchaseType.Subscription:
+                        await GrantSubscriptionAsync(payment);
+                        break;
+                    case PaymentPurchaseType.CreditTopUp:
+                        await GrantPurchasedCreditsAsync(payment);
+                        break;
+                }
+
+                callbackLog.IsProcessed = true;
+                callbackLog.ProcessedAt = DateTime.UtcNow;
+                payment.Status = PaymentStatus.Completed;
+                payment.PaidAt = DateTime.UtcNow;
+                payment.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                return payment;
+            }
+            catch (Exception ex)
+            {
+                callbackLog.ErrorMessage = ex.Message;
+                payment?.Let(p =>
+                {
+                    if (p.Status == PaymentStatus.Pending || p.Status == PaymentStatus.Processing)
+                    {
+                        p.Status = PaymentStatus.Failed;
+                        p.UpdatedAt = DateTime.UtcNow;
+                    }
+                });
+                await _context.SaveChangesAsync();
+                throw;
+            }
+        }
+
+        public async Task RegisterWebhookAsync(string webhookUrl)
+        {
+            await _payOS.Webhooks.ConfirmAsync(webhookUrl);
         }
 
         public async Task<IEnumerable<Payment>> GetUserPaymentsAsync(string userId)
@@ -191,9 +360,90 @@ namespace FinalProject_PRN222_Group7.BLL.Services
 
         public async Task<IEnumerable<Payment>> GetAllPaymentsAsync()
             => await _paymentRepo.GetAllWithUsersAsync();
+
+        private async Task<PaymentCheckoutResult> CreateCheckoutAsync(Payment payment, string description, string baseUrl)
+        {
+            var orderCode = long.Parse($"{payment.Id}{DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 100000}");
+            payment.GatewayOrderCode = orderCode.ToString();
+            payment.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            var request = new CreatePaymentLinkRequest
+            {
+                OrderCode = orderCode,
+                Amount = (int)payment.Amount,
+                Description = description,
+                ReturnUrl = $"{baseUrl}/Packages/Success?paymentId={payment.Id}",
+                CancelUrl = $"{baseUrl}/Packages/Cancel?paymentId={payment.Id}"
+            };
+
+            var createResult = await _payOS.PaymentRequests.CreateAsync(request);
+            payment.Notes = createResult.CheckoutUrl;
+            payment.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return new PaymentCheckoutResult(payment, createResult.CheckoutUrl);
+        }
+
+        private async Task GrantSubscriptionAsync(Payment payment)
+        {
+            if (payment.PackageId == null)
+            {
+                throw new InvalidOperationException("Package not found for subscription payment");
+            }
+
+            var package = payment.Package ?? await _context.Packages.FirstAsync(p => p.Id == payment.PackageId.Value);
+            var subscription = await _subscriptionService.ActivatePackageAsync(payment.UserId, package.Id);
+            payment.UserSubscriptionId = subscription.Id;
+            payment.PackageId = package.Id;
+            payment.PaymentMethod = payment.PaymentMethod == PaymentMethod.Internal && package.Price <= 0 ? PaymentMethod.Internal : PaymentMethod.PayOS;
+        }
+
+        private async Task GrantPurchasedCreditsAsync(Payment payment)
+        {
+            if (payment.CreditPackageId == null)
+            {
+                throw new InvalidOperationException("Credit package not found for top-up payment");
+            }
+
+            var creditPackage = payment.CreditPackage ?? await _context.CreditPackages.FirstAsync(cp => cp.Id == payment.CreditPackageId.Value);
+            await _walletService.GrantAsync(
+                payment.UserId,
+                CreditSourceType.Purchased,
+                creditPackage.Credits,
+                $"payment:{payment.Id}:topup",
+                $"Top-up from payment {payment.InvoiceNumber}");
+        }
+
+        private async Task<Payment?> TryResolvePaymentFromWebhookAsync(Webhook webhook)
+        {
+            var orderCode = ResolveOrderCode(webhook);
+            if (string.IsNullOrWhiteSpace(orderCode))
+            {
+                return null;
+            }
+
+            return await _context.Payments
+                .Include(p => p.Package)
+                .Include(p => p.CreditPackage)
+                .FirstOrDefaultAsync(p => p.GatewayOrderCode == orderCode);
+        }
+
+        private static string ResolveOrderCode(Webhook webhook)
+        {
+            var orderCodeProperty = webhook.GetType().GetProperty("Data")?.PropertyType.GetProperty("OrderCode");
+            var data = webhook.GetType().GetProperty("Data")?.GetValue(webhook);
+            var value = orderCodeProperty?.GetValue(data);
+            return value?.ToString() ?? string.Empty;
+        }
+
+        private static string ResolveSignature(Webhook webhook)
+            => webhook.GetType().GetProperty("Signature")?.GetValue(webhook)?.ToString() ?? string.Empty;
+
+        private static string BuildInvoiceNumber(string prefix)
+            => $"{prefix}-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..8].ToUpper()}";
     }
 
-    // ============ REPORT SERVICE ============
     public interface IReportService
     {
         Task<DashboardStats> GetDashboardStatsAsync();
@@ -250,7 +500,6 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         }
     }
 
-    // ============ EMAIL SERVICE ============
     public interface IEmailService
     {
         Task SendEmailAsync(string toEmail, string subject, string body);
@@ -260,25 +509,20 @@ namespace FinalProject_PRN222_Group7.BLL.Services
     {
         public async Task SendEmailAsync(string toEmail, string subject, string body)
         {
-            using (var message = new System.Net.Mail.MailMessage())
-            {
-                message.From = new System.Net.Mail.MailAddress("vinhmtse180031@fpt.edu.vn", "LMS AI System");
-                message.To.Add(new System.Net.Mail.MailAddress(toEmail));
-                message.Subject = subject;
-                message.Body = body;
-                message.IsBodyHtml = true;
+            using var message = new System.Net.Mail.MailMessage();
+            message.From = new System.Net.Mail.MailAddress("vinhmtse180031@fpt.edu.vn", "LMS AI System");
+            message.To.Add(new System.Net.Mail.MailAddress(toEmail));
+            message.Subject = subject;
+            message.Body = body;
+            message.IsBodyHtml = true;
 
-                using (var smtp = new System.Net.Mail.SmtpClient("smtp.gmail.com", 587))
-                {
-                    smtp.Credentials = new System.Net.NetworkCredential("vinhmtse180031@fpt.edu.vn", "xwhb ekqi mmhe ceas");
-                    smtp.EnableSsl = true;
-                    await smtp.SendMailAsync(message);
-                }
-            }
+            using var smtp = new System.Net.Mail.SmtpClient("smtp.gmail.com", 587);
+            smtp.Credentials = new System.Net.NetworkCredential("vinhmtse180031@fpt.edu.vn", "xwhb ekqi mmhe ceas");
+            smtp.EnableSsl = true;
+            await smtp.SendMailAsync(message);
         }
     }
 
-    // ============ QUESTION BANK SERVICE ============
     public interface IQuestionBankService
     {
         Task<IEnumerable<QuestionBankItem>> GetQuestionsByCourseAsync(int courseId, int? chapterId = null);
@@ -319,17 +563,19 @@ namespace FinalProject_PRN222_Group7.BLL.Services
             foreach (var item in items)
             {
                 var normalizedContent = item.Content.Trim().ToLower();
-                if (!existingContents.Contains(normalizedContent))
+                if (existingContents.Contains(normalizedContent))
                 {
-                    item.CourseId = courseId;
-                    item.ChapterId = chapterId;
-                    item.DocumentId = documentId;
-                    item.CreatedAt = DateTime.UtcNow;
-
-                    _context.QuestionBankItems.Add(item);
-                    addedItems.Add(item);
-                    existingContents.Add(normalizedContent);
+                    continue;
                 }
+
+                item.CourseId = courseId;
+                item.ChapterId = chapterId;
+                item.DocumentId = documentId;
+                item.CreatedAt = DateTime.UtcNow;
+
+                _context.QuestionBankItems.Add(item);
+                addedItems.Add(item);
+                existingContents.Add(normalizedContent);
             }
             await _context.SaveChangesAsync();
             return addedItems;
@@ -344,11 +590,13 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         public async Task DeleteQuestionAsync(int id)
         {
             var item = await _context.QuestionBankItems.FindAsync(id);
-            if (item != null)
+            if (item == null)
             {
-                _context.QuestionBankItems.Remove(item);
-                await _context.SaveChangesAsync();
+                return;
             }
+
+            _context.QuestionBankItems.Remove(item);
+            await _context.SaveChangesAsync();
         }
 
         public async Task<Quiz> GenerateRandomQuizAsync(int courseId, int? chapterId, int numQuestions, string title)
@@ -361,7 +609,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
 
             var bankItems = await query.ToListAsync();
             var random = new Random();
-            var chosenItems = bankItems.OrderBy(x => random.Next()).Take(numQuestions).ToList();
+            var chosenItems = bankItems.OrderBy(_ => random.Next()).Take(numQuestions).ToList();
 
             var quiz = new Quiz
             {
@@ -376,10 +624,10 @@ namespace FinalProject_PRN222_Group7.BLL.Services
             _context.Quizzes.Add(quiz);
             await _context.SaveChangesAsync();
 
-            int idx = 0;
+            var idx = 0;
             foreach (var item in chosenItems)
             {
-                var q = new Question
+                _context.Questions.Add(new Question
                 {
                     QuizId = quiz.Id,
                     Content = item.Content,
@@ -390,8 +638,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                     CorrectAnswer = item.CorrectAnswer,
                     Explanation = item.Explanation,
                     OrderIndex = idx++
-                };
-                _context.Questions.Add(q);
+                });
             }
             await _context.SaveChangesAsync();
 
@@ -408,7 +655,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
 
             var bankItems = await query.ToListAsync();
             var random = new Random();
-            var chosenItems = bankItems.OrderBy(x => random.Next()).Take(numQuestions).ToList();
+            var chosenItems = bankItems.OrderBy(_ => random.Next()).Take(numQuestions).ToList();
 
             var quiz = new Quiz
             {
@@ -423,10 +670,10 @@ namespace FinalProject_PRN222_Group7.BLL.Services
             _context.Quizzes.Add(quiz);
             await _context.SaveChangesAsync();
 
-            int idx = 0;
+            var idx = 0;
             foreach (var item in chosenItems)
             {
-                var q = new Question
+                _context.Questions.Add(new Question
                 {
                     QuizId = quiz.Id,
                     Content = item.Content,
@@ -437,12 +684,22 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                     CorrectAnswer = item.CorrectAnswer,
                     Explanation = item.Explanation,
                     OrderIndex = idx++
-                };
-                _context.Questions.Add(q);
+                });
             }
             await _context.SaveChangesAsync();
 
             return quiz;
+        }
+    }
+
+    internal static class PaymentServiceExtensions
+    {
+        public static void Let<T>(this T? obj, Action<T> action) where T : class
+        {
+            if (obj != null)
+            {
+                action(obj);
+            }
         }
     }
 }

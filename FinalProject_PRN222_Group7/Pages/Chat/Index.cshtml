@@ -2,45 +2,38 @@
 @model FinalProject_PRN222_Group7.Pages.Chat.IndexModel
 @{
     ViewData["Title"] = "AI Chatbot";
-    Layout = null; // Custom full-height layout
 }
 
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Chatbot - LMS AI</title>
-    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+@section Styles {
     <style>
-        /* Show sidebar toggle on Chat Header for mobile views */
-        .mobile-toggle-btn {
-            display: none !important;
-        }
-        @@media (max-width: 1024px) {
-            .mobile-toggle-btn {
-                display: flex !important;
-            }
+        .page-content {
+            padding: 0;
         }
 
-        /* Markdown styling inside chat message bubbles */
+        .chat-layout {
+            min-height: calc(100vh - var(--topbar-h));
+        }
+
         .message-bubble p {
             margin-bottom: 8px;
             line-height: 1.6;
         }
+
         .message-bubble p:last-child {
             margin-bottom: 0;
         }
+
         .message-bubble ul, .message-bubble ol {
             margin-left: 20px;
             margin-bottom: 8px;
             padding-left: 0;
         }
+
         .message-bubble li {
             margin-bottom: 4px;
             line-height: 1.5;
         }
+
         .message-bubble h1, .message-bubble h2, .message-bubble h3, .message-bubble h4 {
             font-size: 0.95rem;
             font-weight: 600;
@@ -49,472 +42,294 @@
             color: var(--text-primary);
         }
     </style>
-</head>
-<body>
-<div class="app-shell">
+}
 
-    <!-- Sidebar (reuse) -->
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-logo">
-            <div class="sidebar-logo-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+<div class="chat-layout">
+    <div class="chat-sidebar">
+        <div class="chat-sidebar-header">
+            <button onclick="newChat()" class="btn btn-primary w-full btn-sm">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Chat mới
+            </button>
+            <div style="margin-top:10px">
+                <input type="text" id="searchSessions" class="form-control" placeholder="Tìm chat..." style="font-size:0.8rem;padding:7px 12px" oninput="filterSessions(this.value)" />
             </div>
-            <span class="sidebar-logo-text">LMS AI</span>
         </div>
-        <nav class="sidebar-nav">
-            <a href="/Dashboard" class="nav-item"><span class="nav-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span><span class="nav-item-text">Dashboard</span></a>
-            <a href="/Chat" class="nav-item active"><span class="nav-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></span><span class="nav-item-text">AI Chatbot</span></a>
-            <a href="/Quiz" class="nav-item"><span class="nav-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01"/></svg></span><span class="nav-item-text">Quiz</span></a>
-            @if (User.IsInRole("Lecturer") || User.IsInRole("Admin"))
+
+        <div class="chat-sessions" id="sessionsList">
+            @if (Model.Sessions.Any())
             {
-                <a href="/Courses" class="nav-item"><span class="nav-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></span><span class="nav-item-text">Môn học</span></a>
-            }
-            <a href="/Reports" class="nav-item"><span class="nav-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span><span class="nav-item-text">Báo cáo</span></a>
-        </nav>
-        <div class="sidebar-footer">
-            <div class="user-card">
-                <div class="user-avatar">@Model.UserInitials</div>
-                <div class="user-info">
-                    <div class="user-name">@Model.UserName</div>
-                    <div class="user-role">@Model.UserRole</div>
-                </div>
-            </div>
-        </div>
-    </aside>
-
-    <!-- Main -->
-    <div class="main-content" id="mainContent">
-        <div class="chat-layout">
-
-            <!-- Chat Sidebar -->
-            <div class="chat-sidebar">
-                <div class="chat-sidebar-header">
-                    <button onclick="newChat()" class="btn btn-primary w-full btn-sm">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        Chat mới
-                    </button>
-                    <div style="margin-top:10px">
-                        <input type="text" id="searchSessions" class="form-control" placeholder="Tìm chat..." style="font-size:0.8rem;padding:7px 12px" oninput="filterSessions(this.value)" />
-                    </div>
-                </div>
-
-                <div class="chat-sessions" id="sessionsList">
-                    @if (Model.Sessions.Any())
-                    {
-                        @foreach (var s in Model.Sessions)
-                        {
-                            <div class="chat-session-item @(s.Id == Model.ActiveSessionId ? "active" : "")"
-                                 onclick="loadSession(@s.Id)"
-                                 data-title="@s.Title.ToLower()"
-                                 style="position:relative;display:flex;justify-content:space-between;align-items:center;padding-right:32px;">
-                                <div>
-                                    <div class="chat-session-title">@s.Title</div>
-                                    <div class="chat-session-time">@s.UpdatedAt.ToString("dd/MM HH:mm")</div>
-                                </div>
-                                <button type="button" onclick="deleteSession(@s.Id, '@Html.Raw(s.Title.Replace("'", "\\'"))', event)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius);transition:all 0.2s" onmouseover="this.style.background='var(--danger-muted)';this.style.color='var(--danger)'" onmouseout="this.style.background='none';this.style.color='var(--text-muted)'" title="Xóa lịch sử chat">
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                                </button>
-                            </div>
-                        }
-                    }
-                    else
-                    {
-                        <div style="padding:20px;text-align:center;font-size:0.8rem;color:var(--text-muted)">Chưa có chat nào</div>
-                    }
-                </div>
-            </div>
-
-            <!-- Chat Main -->
-            <div class="chat-main">
-
-                <!-- Chat Header -->
-                <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--bg-surface)">
-                    <!-- Sidebar Toggle Button (Only visible on mobile/tablet <= 1024px) -->
-                    <button class="topbar-toggle mobile-toggle-btn" id="sidebarToggle" aria-label="Toggle sidebar" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;padding:6px;align-items:center;justify-content:center;border-radius:var(--radius-sm)">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-                    </button>
-
-                    <div style="width:34px;height:34px;background:linear-gradient(135deg,var(--accent),#8b5cf6);border-radius:8px;display:flex;align-items:center;justify-content:center">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                    </div>
-                    <div>
-                        <div style="font-weight:600;font-size:0.9rem" id="chatTitle">@(Model.ActiveSession?.Title ?? "AI Chatbot")</div>
-                        <div style="font-size:0.72rem;color:var(--success);display:flex;align-items:center;gap:4px">
-                            <span style="width:6px;height:6px;background:var(--success);border-radius:50%;display:inline-block"></span>
-                            Sẵn sàng
+                @foreach (var s in Model.Sessions)
+                {
+                    <div class="chat-session-item @(s.Id == Model.ActiveSessionId ? "active" : "")"
+                         onclick="loadSession(@s.Id)"
+                         data-title="@s.Title.ToLower()"
+                         style="position:relative;display:flex;justify-content:space-between;align-items:center;padding-right:32px;">
+                        <div>
+                            <div class="chat-session-title">@s.Title</div>
+                            <div class="chat-session-time">@s.UpdatedAt.ToString("dd/MM HH:mm")</div>
                         </div>
-                    </div>
-
-                    <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
-                        <select id="courseSelector" class="form-control" style="width:160px;font-size:0.78rem;padding:6px 10px" @(Model.ActiveSessionId.HasValue ? "disabled" : "")>
-                            <option value="">Tất cả tài liệu</option>
-                            @foreach (var c in Model.Courses)
-                            {
-                                <option value="@c.Id" selected="@(Model.ActiveSession?.CourseId == c.Id)">@c.Name</option>
-                            }
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Messages -->
-                <div class="chat-messages" id="messagesArea">
-                    @if (Model.ActiveSession == null || !Model.ActiveSession.Messages.Any())
-                    {
-                        <div id="welcomeState" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:16px">
-                            <div style="width:64px;height:64px;background:linear-gradient(135deg,var(--accent),#8b5cf6);border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-accent)">
-                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                            </div>
-                            <div>
-                                <h2 style="font-size:1.2rem;font-weight:700;color:var(--text-primary);margin-bottom:6px">Xin chào! Tôi là AI học tập</h2>
-                                <p style="font-size:0.875rem;color:var(--text-secondary);max-width:320px">Tôi sẽ trả lời câu hỏi dựa trên tài liệu học tập của bạn. Hãy chọn môn học và bắt đầu hỏi!</p>
-                            </div>
-                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:400px;width:100%">
-                                @foreach (var q in new[]{ "Tóm tắt nội dung chương 1?", "Giải thích khái niệm X?", "Cho ví dụ về Y?", "So sánh A và B?" })
-                                {
-                                    <button onclick="document.getElementById('chatInput').value='@q';document.getElementById('chatInput').focus()"
-                                            style="padding:10px 14px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);text-align:left;cursor:pointer;font-size:0.8rem;color:var(--text-secondary);transition:all 0.15s;font-family:var(--font-sans)"
-                                            onmouseenter="this.style.borderColor='var(--border-hover)';this.style.background='var(--bg-hover)'"
-                                            onmouseleave="this.style.borderColor='var(--border)';this.style.background='var(--bg-elevated)'">
-                                        @q
-                                    </button>
-                                }
-                            </div>
-                        </div>
-                    }
-                    else
-                    {
-                        @foreach (var msg in Model.ActiveSession.Messages)
-                        {
-                            <div class="message @(msg.Role == FinalProject_PRN222_Group7.DAL.Entities.MessageRole.User ? "user" : "")">
-                                <div class="message-avatar">
-                                    @(msg.Role == FinalProject_PRN222_Group7.DAL.Entities.MessageRole.User ? Model.UserInitials : "AI")
-                                </div>
-                                <div>
-                                    <div class="message-bubble">@msg.Content</div>
-                                    @if (msg.SourceCitations != null)
-                                    {
-                                        <div class="message-citations">
-                                            <span style="font-size:0.7rem;color:var(--text-muted)">Nguồn:</span>
-                                            @foreach (var cite in msg.SourceCitations.Split(',', StringSplitOptions.RemoveEmptyEntries))
-                                            {
-                                                <span class="citation-pill">@cite.Trim()</span>
-                                            }
-                                        </div>
-                                    }
-                                </div>
-                            </div>
-                        }
-                    }
-                </div>
-
-                <!-- Input Area -->
-                <div class="chat-input-area">
-                    <div class="chat-input-wrapper" id="inputWrapper">
-                        <textarea id="chatInput" class="chat-textarea" data-autoresize
-                                  placeholder="Nhập câu hỏi về tài liệu..."
-                                  rows="1"
-                                  onkeydown="handleKeyDown(event)"></textarea>
-                        <button id="sendBtn" class="chat-send-btn" onclick="sendMessage()" title="Gửi (Enter)">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        <button type="button" onclick="deleteSession(@s.Id, '@Html.Raw(s.Title.Replace("'", "\\'"))', event)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius);transition:all 0.2s" onmouseover="this.style.background='var(--danger-muted)';this.style.color='var(--danger)'" onmouseout="this.style.background='none';this.style.color='var(--text-muted)'" title="Xóa lịch sử chat">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                         </button>
                     </div>
-                    <div class="chat-meta">
-                        <span>Enter để gửi, Shift+Enter xuống dòng</span>
-                        <span class="queries-remaining">Còn @(Model.RemainingQueries == int.MaxValue ? "vô hạn" : Model.RemainingQueries + " câu hỏi")</span>
+                }
+            }
+            else
+            {
+                <div style="padding:20px;text-align:center;font-size:0.8rem;color:var(--text-muted)">Chưa có chat nào</div>
+            }
+        </div>
+    </div>
+
+    <div class="chat-main">
+        <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--bg-surface)">
+            <div style="width:34px;height:34px;background:linear-gradient(135deg,var(--accent),#8b5cf6);border-radius:8px;display:flex;align-items:center;justify-content:center">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            </div>
+            <div>
+                <div style="font-weight:600;font-size:0.9rem" id="chatTitle">@(Model.ActiveSession?.Title ?? "AI Chatbot")</div>
+                <div style="font-size:0.72rem;color:var(--success);display:flex;align-items:center;gap:4px">
+                    <span style="width:6px;height:6px;background:var(--success);border-radius:50%;display:inline-block"></span>
+                    Sẵn sàng
+                </div>
+            </div>
+
+            <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+                <select id="courseSelector" class="form-control" style="width:160px;font-size:0.78rem;padding:6px 10px" @(Model.ActiveSessionId.HasValue ? "disabled" : "")>
+                    <option value="">Tất cả tài liệu</option>
+                    @foreach (var c in Model.Courses)
+                    {
+                        <option value="@c.Id" selected="@(Model.ActiveSession?.CourseId == c.Id)">@c.Name</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="chat-messages" id="messagesArea">
+            @if (Model.ActiveSession == null || !Model.ActiveSession.Messages.Any())
+            {
+                <div id="welcomeState" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:16px">
+                    <div style="width:64px;height:64px;background:linear-gradient(135deg,var(--accent),#8b5cf6);border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-accent)">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                    </div>
+                    <div>
+                        <h2 style="font-size:1.2rem;font-weight:700;color:var(--text-primary);margin-bottom:6px">Xin chào! Tôi là AI học tập</h2>
+                        <p style="font-size:0.875rem;color:var(--text-secondary);max-width:320px">Tôi sẽ trả lời câu hỏi dựa trên tài liệu học tập của bạn. Hãy chọn môn học và bắt đầu hỏi!</p>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:400px;width:100%">
+                        @foreach (var q in new[] { "Tóm tắt nội dung chương 1?", "Giải thích khái niệm X?", "Cho ví dụ về Y?", "So sánh A và B?" })
+                        {
+                            <button onclick="document.getElementById('chatInput').value='@q';document.getElementById('chatInput').focus()"
+                                    style="padding:10px 14px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);text-align:left;cursor:pointer;font-size:0.8rem;color:var(--text-secondary);transition:all 0.15s;font-family:var(--font-sans)"
+                                    onmouseenter="this.style.borderColor='var(--border-hover)';this.style.background='var(--bg-hover)'"
+                                    onmouseleave="this.style.borderColor='var(--border)';this.style.background='var(--bg-elevated)'">
+                                @q
+                            </button>
+                        }
                     </div>
                 </div>
+            }
+            else
+            {
+                @foreach (var msg in Model.ActiveSession.Messages)
+                {
+                    <div class="message @(msg.Role == FinalProject_PRN222_Group7.DAL.Entities.MessageRole.User ? "user" : "")">
+                        <div class="message-avatar">
+                            @(msg.Role == FinalProject_PRN222_Group7.DAL.Entities.MessageRole.User ? Model.UserInitials : "AI")
+                        </div>
+                        <div>
+                            <div class="message-bubble">@msg.Content</div>
+                            @if (msg.SourceCitations != null)
+                            {
+                                <div class="message-citations">
+                                    <span style="font-size:0.7rem;color:var(--text-muted)">Nguồn:</span>
+                                    @foreach (var cite in msg.SourceCitations.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                                    {
+                                        <span class="citation-pill">@cite.Trim()</span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+        </div>
 
-            </div><!-- end chat-main -->
-        </div><!-- end chat-layout -->
-    </div><!-- end main-content -->
+        <div class="chat-input-area">
+            <div class="chat-input-wrapper" id="inputWrapper">
+                <textarea id="chatInput" class="chat-textarea" data-autoresize
+                          placeholder="Nhập câu hỏi về tài liệu..."
+                          rows="1"
+                          onkeydown="handleKeyDown(event)"></textarea>
+                <button id="sendBtn" class="chat-send-btn" onclick="sendMessage()" title="Gửi (Enter)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+            </div>
+            <div class="chat-meta">
+                <span>Enter để gửi, Shift+Enter xuống dòng</span>
+                <span class="queries-remaining">Còn @(Model.RemainingQueries == int.MaxValue ? "vô hạn" : Model.RemainingQueries + " AI credit")</span>
+            </div>
+        </div>
+    </div>
 </div>
 
 @Html.AntiForgeryToken()
-<script>
-var activeSessionId = @(Model.ActiveSessionId?.ToString() ?? "null");
-var antiForgeryToken = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
 
-function newChat() {
-    activeSessionId = null;
-    document.getElementById('chatTitle').textContent = 'AI Chatbot';
-    var selector = document.getElementById('courseSelector');
-    if (selector) {
-        selector.value = "";
-        selector.removeAttribute('disabled');
-    }
-    var area = document.getElementById('messagesArea');
-    area.innerHTML = '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:0.875rem">Bắt đầu cuộc trò chuyện mới...</div>';
-    document.querySelectorAll('.chat-session-item').forEach(el => el.classList.remove('active'));
-}
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        var activeSessionId = @(Model.ActiveSessionId?.ToString() ?? "null");
+        var antiForgeryToken = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
 
-function loadSession(id) {
-    window.location.href = '/Chat/Session/' + id;
-}
-
-function filterSessions(val) {
-    document.querySelectorAll('.chat-session-item').forEach(function(el) {
-        el.style.display = el.dataset.title.includes(val.toLowerCase()) ? '' : 'none';
-    });
-}
-
-function handleKeyDown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-    // autoresize
-    var ta = document.getElementById('chatInput');
-    setTimeout(function() {
-        ta.style.height = 'auto';
-        ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
-    }, 0);
-}
-
-async function sendMessage() {
-    var input = document.getElementById('chatInput');
-    var msg = input.value.trim();
-    if (!msg) return;
-
-    var area = document.getElementById('messagesArea');
-    // Remove welcome state
-    var welcome = document.getElementById('welcomeState');
-    if (welcome) welcome.remove();
-
-    // Append user message
-    appendMessage('user', msg, null);
-    input.value = '';
-    input.style.height = 'auto';
-
-    // Show typing
-    var typingDiv = document.createElement('div');
-    typingDiv.className = 'message';
-    typingDiv.id = 'typingIndicator';
-    typingDiv.innerHTML = '<div class="message-avatar">AI</div><div class="message-bubble"><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>';
-    area.appendChild(typingDiv);
-    area.scrollTop = area.scrollHeight;
-
-    try {
-        var courseId = document.getElementById('courseSelector').value;
-        var res = await fetch('/api/chat/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': antiForgeryToken },
-            body: JSON.stringify({ question: msg, sessionId: activeSessionId, courseId: courseId || null })
-        });
-        var data = await res.json();
-
-        typingDiv.remove();
-
-        if (data.sessionId) {
-            activeSessionId = data.sessionId;
+        function newChat() {
+            activeSessionId = null;
+            document.getElementById('chatTitle').textContent = 'AI Chatbot';
             var selector = document.getElementById('courseSelector');
             if (selector) {
-                selector.setAttribute('disabled', 'disabled');
+                selector.value = "";
+                selector.removeAttribute('disabled');
+            }
+            var area = document.getElementById('messagesArea');
+            area.innerHTML = '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:0.875rem">Bắt đầu cuộc trò chuyện mới...</div>';
+            document.querySelectorAll('.chat-session-item').forEach(el => el.classList.remove('active'));
+        }
+
+        function loadSession(id) {
+            window.location.href = '/Chat/Session/' + id;
+        }
+
+        function filterSessions(val) {
+            document.querySelectorAll('.chat-session-item').forEach(function(el) {
+                el.style.display = el.dataset.title.includes(val.toLowerCase()) ? '' : 'none';
+            });
+        }
+
+        function handleKeyDown(e) {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+            var ta = document.getElementById('chatInput');
+            setTimeout(function() {
+                ta.style.height = 'auto';
+                ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
+            }, 0);
+        }
+
+        async function sendMessage() {
+            var input = document.getElementById('chatInput');
+            var msg = input.value.trim();
+            if (!msg) return;
+
+            var area = document.getElementById('messagesArea');
+            var welcome = document.getElementById('welcomeState');
+            if (welcome) welcome.remove();
+
+            appendMessage('user', msg, null);
+            input.value = '';
+            input.style.height = 'auto';
+
+            var typingDiv = document.createElement('div');
+            typingDiv.className = 'message';
+            typingDiv.id = 'typingIndicator';
+            typingDiv.innerHTML = '<div class="message-avatar">AI</div><div class="message-bubble"><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>';
+            area.appendChild(typingDiv);
+            area.scrollTop = area.scrollHeight;
+
+            try {
+                var courseId = document.getElementById('courseSelector').value;
+                var res = await fetch('/api/chat/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': antiForgeryToken },
+                    body: JSON.stringify({ question: msg, sessionId: activeSessionId, courseId: courseId || null })
+                });
+                var data = await res.json();
+
+                typingDiv.remove();
+
+                if (data.sessionId) {
+                    activeSessionId = data.sessionId;
+                    var selector = document.getElementById('courseSelector');
+                    if (selector) {
+                        selector.setAttribute('disabled', 'disabled');
+                    }
+                }
+                appendMessage('ai', data.answer, data.citations);
+            } catch (err) {
+                typingDiv.remove();
+                appendMessage('ai', 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại.', null);
             }
         }
-        appendMessage('ai', data.answer, data.citations);
-    } catch (err) {
-        typingDiv.remove();
-        appendMessage('ai', 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại.', null);
-    }
-}
 
-function appendMessage(role, content, citations) {
-    var area = document.getElementById('messagesArea');
-    var div = document.createElement('div');
-    div.className = 'message' + (role === 'user' ? ' user' : '');
+        function appendMessage(role, content, citations) {
+            var area = document.getElementById('messagesArea');
+            var div = document.createElement('div');
+            div.className = 'message' + (role === 'user' ? ' user' : '');
 
-    var avatarText = role === 'user' ? '@Model.UserInitials' : 'AI';
-    var citeHtml = '';
-    if (citations && citations.length > 0) {
-        citeHtml = '<div class="message-citations"><span style="font-size:0.7rem;color:var(--text-muted)">Nguồn:</span>';
-        citations.forEach(function(c) { citeHtml += '<span class="citation-pill">' + c + '</span>'; });
-        citeHtml += '</div>';
-    }
+            var avatarText = role === 'user' ? '@Model.UserInitials' : 'AI';
+            var citeHtml = '';
+            if (citations && citations.length > 0) {
+                citeHtml = '<div class="message-citations"><span style="font-size:0.7rem;color:var(--text-muted)">Nguồn:</span>';
+                citations.forEach(function(c) { citeHtml += '<span class="citation-pill">' + c + '</span>'; });
+                citeHtml += '</div>';
+            }
 
-    var renderedContent = role === 'user' ? escapeHtml(content) : marked.parse(content);
-    div.innerHTML = '<div class="message-avatar">' + avatarText + '</div><div><div class="message-bubble">' + renderedContent + '</div>' + citeHtml + '</div>';
-    area.appendChild(div);
-    area.scrollTop = area.scrollHeight;
-}
+            var renderedContent = role === 'user' ? escapeHtml(content) : marked.parse(content);
+            div.innerHTML = '<div class="message-avatar">' + avatarText + '</div><div><div class="message-bubble">' + renderedContent + '</div>' + citeHtml + '</div>';
+            area.appendChild(div);
+            area.scrollTop = area.scrollHeight;
+        }
 
-function escapeHtml(t) {
-    var d = document.createElement('div');
-    d.appendChild(document.createTextNode(t));
-    return d.innerHTML;
-}
+        function escapeHtml(t) {
+            var d = document.createElement('div');
+            d.appendChild(document.createTextNode(t));
+            return d.innerHTML;
+        }
 
-// Sidebar toggle
-document.getElementById && (function() {
-    var sidebar = document.getElementById('sidebar');
-    var main = document.getElementById('mainContent');
-    var toggle = document.getElementById('sidebarToggle');
-    var overlay = document.getElementById('sidebarOverlay');
-    var COLLAPSED_KEY = 'sidebar_collapsed';
+        function deleteSession(sessionId, title, event) {
+            if (event) event.stopPropagation();
 
-    if (localStorage.getItem(COLLAPSED_KEY) === '1' && window.innerWidth > 1024) {
-        sidebar.classList.add('collapsed');
-        main.classList.add('sidebar-collapsed');
-    }
+            showConfirm(
+                'Xóa lịch sử trò chuyện',
+                `Bạn có chắc chắn muốn xóa lịch sử trò chuyện "${title}" không? Hành động này sẽ xóa toàn bộ nội dung trò chuyện và không thể phục hồi!`,
+                '🗑️',
+                () => {
+                    const formData = new FormData();
+                    formData.append('sessionId', sessionId);
 
-    if (toggle) {
-        toggle.addEventListener('click', function () {
-            if (window.innerWidth <= 1024) {
-                if (sidebar.classList.contains('mobile-open')) {
-                    closeSidebar();
-                } else {
-                    sidebar.classList.add('mobile-open');
-                    if (overlay) overlay.style.display = 'block';
-                }
-            } else {
-                var collapsed = sidebar.classList.toggle('collapsed');
-                main.classList.toggle('sidebar-collapsed', collapsed);
-                localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0');
+                    fetch('?handler=DeleteSession', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'RequestVerificationToken': antiForgeryToken
+                        }
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            showAlert('Đã xóa', 'Lịch sử cuộc trò chuyện đã được xóa thành công.', '✅', () => {
+                                window.location.href = '/Chat';
+                            });
+                        } else {
+                            showAlert('Lỗi', data.error || 'Không thể xóa cuộc trò chuyện.', '❌');
+                        }
+                    })
+                    .catch(err => {
+                        showAlert('Lỗi kết nối', 'Không thể kết nối với hệ thống để xóa.', '❌');
+                    });
+                },
+                true
+            );
+        }
+
+        document.querySelectorAll('.message:not(.user) .message-bubble').forEach(function(el) {
+            var rawText = el.textContent || el.innerText;
+            if (rawText && rawText.trim()) {
+                el.innerHTML = marked.parse(rawText);
             }
         });
-    }
 
-    window.closeSidebar = function () {
-        sidebar.classList.remove('mobile-open');
-        if (overlay) overlay.style.display = 'none';
-    };
-
-    // Render existing assistant messages on page load
-    document.querySelectorAll('.message:not(.user) .message-bubble').forEach(function(el) {
-        var rawText = el.textContent || el.innerText;
-        if (rawText && rawText.trim()) {
-            el.innerHTML = marked.parse(rawText);
+        var area = document.getElementById('messagesArea');
+        if (area) {
+            area.scrollTop = area.scrollHeight;
         }
-    });
-
-    // Auto-scroll chat area to bottom
-    var area = document.getElementById('messagesArea');
-    if (area) {
-        area.scrollTop = area.scrollHeight;
-    }
-})();
-
-// Global Alert/Confirm Handlers for Chat Page (since Layout = null)
-let activeGlobalConfirmCallback = null;
-
-window.showAlert = function(title, message, icon, onClose) {
-    document.getElementById('globalAlertTitle').innerText = title || 'Thông báo';
-    document.getElementById('globalAlertMessage').innerText = message || '';
-    document.getElementById('globalAlertIcon').innerText = icon || '🔔';
-    document.getElementById('globalAlertModal').style.display = 'flex';
-    window._alertOnClose = onClose || null;
-};
-
-window.closeGlobalAlert = function() {
-    document.getElementById('globalAlertModal').style.display = 'none';
-    if (window._alertOnClose) { window._alertOnClose(); window._alertOnClose = null; }
-};
-
-window.showConfirm = function(title, message, icon, onConfirm, isDanger = false) {
-    document.getElementById('globalConfirmTitle').innerText = title || 'Xác nhận';
-    document.getElementById('globalConfirmMessage').innerText = message || '';
-    document.getElementById('globalConfirmIcon').innerText = icon || '⚠️';
-    
-    const submitBtn = document.getElementById('globalConfirmSubmitBtn');
-    submitBtn.disabled = false;
-    submitBtn.innerHTML = 'Xác nhận';
-    if (isDanger) {
-        submitBtn.className = 'btn btn-danger';
-        submitBtn.style.background = 'var(--danger)';
-        submitBtn.style.border = '1px solid var(--danger)';
-        submitBtn.style.color = '#fff';
-    } else {
-        submitBtn.className = 'btn btn-primary';
-        submitBtn.style.background = 'var(--accent)';
-        submitBtn.style.border = '1px solid var(--accent)';
-        submitBtn.style.color = '#fff';
-    }
-
-    activeGlobalConfirmCallback = onConfirm;
-    document.getElementById('globalConfirmModal').style.display = 'flex';
-};
-
-window.closeGlobalConfirm = function() {
-    document.getElementById('globalConfirmModal').style.display = 'none';
-    activeGlobalConfirmCallback = null;
-};
-
-window.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('globalConfirmSubmitBtn')?.addEventListener('click', function() {
-        if (this.disabled) return;
-        this.disabled = true;
-        this.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Đang xử lý...</span>';
-        if (activeGlobalConfirmCallback) {
-            activeGlobalConfirmCallback();
-        }
-        closeGlobalConfirm();
-    });
-});
-
-function deleteSession(sessionId, title, event) {
-    if (event) event.stopPropagation();
-
-    showConfirm(
-        'Xóa lịch sử trò chuyện',
-        `Bạn có chắc chắn muốn xóa lịch sử trò chuyện "${title}" không? Hành động này sẽ xóa toàn bộ nội dung trò chuyện và không thể phục hồi!`,
-        '🗑️',
-        () => {
-            const formData = new FormData();
-            formData.append('sessionId', sessionId);
-
-            fetch('?handler=DeleteSession', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'RequestVerificationToken': antiForgeryToken
-                }
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    showAlert('Đã xóa', 'Lịch sử cuộc trò chuyện đã được xóa thành công.', '✅', () => {
-                        window.location.href = '/Chat';
-                    });
-                } else {
-                    showAlert('Lỗi', data.error || 'Không thể xóa cuộc trò chuyện.', '❌');
-                }
-            })
-            .catch(err => {
-                showAlert('Lỗi kết nối', 'Không thể kết nối với hệ thống để xóa.', '❌');
-            });
-        },
-        true
-    );
+    </script>
 }
-</script>
-
-<!-- Sidebar overlay for mobile views -->
-<div id="sidebarOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99" onclick="closeSidebar()"></div>
-
-<!-- Global Custom Alert Modal -->
-<div id="globalAlertModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;align-items:center;justify-content:center">
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:26px;width:100%;max-width:400px;box-shadow:var(--shadow-lg);text-align:center;animation: globalModalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)">
-        <div style="font-size:2.8rem;margin-bottom:12px" id="globalAlertIcon">🔔</div>
-        <h3 style="font-size:1.05rem;font-weight:700;color:var(--text-primary);margin-bottom:10px" id="globalAlertTitle">Thông báo</h3>
-        <p style="font-size:0.825rem;color:var(--text-muted);margin-bottom:24px;line-height:1.5" id="globalAlertMessage">Nội dung thông báo.</p>
-        <button type="button" class="btn btn-primary" onclick="closeGlobalAlert()" style="width:100%;font-size:0.8rem;padding:10px 16px;height:auto">Đóng</button>
-    </div>
-</div>
-
-<!-- Global Custom Confirm Modal -->
-<div id="globalConfirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9998;align-items:center;justify-content:center">
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:26px;width:100%;max-width:420px;box-shadow:var(--shadow-lg);text-align:center;animation: globalModalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)">
-        <div style="font-size:2.8rem;margin-bottom:12px" id="globalConfirmIcon">⚠️</div>
-        <h3 style="font-size:1.05rem;font-weight:700;color:var(--text-primary);margin-bottom:10px" id="globalConfirmTitle">Xác nhận</h3>
-        <p style="font-size:0.825rem;color:var(--text-muted);margin-bottom:24px;line-height:1.5" id="globalConfirmMessage">Bạn có chắc chắn muốn thực hiện hành động này?</p>
-        <div style="display:flex;gap:10px;justify-content:center">
-            <button type="button" class="btn btn-secondary" onclick="closeGlobalConfirm()" style="flex:1;font-size:0.8rem;padding:10px 16px;height:auto">Hủy</button>
-            <button type="button" class="btn" id="globalConfirmSubmitBtn" style="flex:1;font-size:0.8rem;padding:10px 16px;height:auto">Đồng ý</button>
-        </div>
-    </div>
-</div>
-
-<style>
-    @@keyframes globalModalFadeIn {
-        from { transform: scale(0.96); opacity: 0; }
-        to { transform: scale(1); opacity: 1; }
-    }
-</style>
-</body>
-</html>

@@ -1,9 +1,11 @@
+using FinalProject_PRN222_Group7.BLL.Abstractions;
 using FinalProject_PRN222_Group7.BLL.Services;
 using FinalProject_PRN222_Group7.DAL.Data;
 using FinalProject_PRN222_Group7.DAL.Entities;
 using FinalProject_PRN222_Group7.DAL.Repositories;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using PayOS;
 
 namespace FinalProject_PRN222_Group7
 {
@@ -29,16 +31,6 @@ namespace FinalProject_PRN222_Group7
             .AddEntityFrameworkStores<AppDbContext>()
             .AddDefaultTokenProviders();
 
-            // ── Auth cookie ───────────────────────────────────────────────────
-            builder.Services.ConfigureApplicationCookie(options =>
-            {
-                options.LoginPath = "/Auth/Login";
-                options.LogoutPath = "/Auth/Logout";
-                options.AccessDeniedPath = "/Auth/AccessDenied";
-                options.ExpireTimeSpan = TimeSpan.FromDays(7);
-                options.SlidingExpiration = true;
-            });
-
             // ── Repositories ──────────────────────────────────────────────────
             builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
             builder.Services.AddScoped<IChatRepository, ChatRepository>();
@@ -49,12 +41,46 @@ namespace FinalProject_PRN222_Group7
             builder.Services.AddScoped<IDocumentService, DocumentService>();
             builder.Services.AddScoped<ICourseService, CourseService>();
             builder.Services.AddScoped<IChapterService, ChapterService>();
+            builder.Services.AddScoped<ICreditWalletService, CreditWalletService>();
+            builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+            builder.Services.AddScoped<IAiUsageGate, AiUsageGate>();
             builder.Services.AddScoped<IChatService, ChatService>();
             builder.Services.AddScoped<IQuizService, QuizService>();
             builder.Services.AddScoped<IQuestionBankService, QuestionBankService>();
             builder.Services.AddScoped<IPaymentService, PaymentService>();
             builder.Services.AddScoped<IReportService, ReportService>();
             builder.Services.AddScoped<IEmailService, EmailService>();
+            builder.Services.AddScoped<ISeedDataService, SeedDataService>();
+
+            // ── PayOS ─────────────────────────────────────────────────────
+            var payOSClientId = builder.Configuration["PayOS:ClientId"] ?? "";
+            var payOSApiKey = builder.Configuration["PayOS:ApiKey"] ?? "";
+            var payOSChecksumKey = builder.Configuration["PayOS:ChecksumKey"] ?? "";
+            builder.Services.AddSingleton(new PayOSClient(new PayOSOptions
+            {
+                ClientId = payOSClientId,
+                ApiKey = payOSApiKey,
+                ChecksumKey = payOSChecksumKey
+            }));
+
+            // ── HTTP Client (for RAG Python API) ─────────────────────────────
+            builder.Services.AddHttpClient("RAGService", client =>
+            {
+                client.BaseAddress = new Uri(builder.Configuration["RAGService:BaseUrl"] ?? "http://localhost:8000");
+                client.Timeout = TimeSpan.FromSeconds(60);
+            });
+
+            // ── Identity cookie ───────────────────────────────────────────────
+
+            // ── Auth cookie ───────────────────────────────────────────────────
+            builder.Services.ConfigureApplicationCookie(options =>
+            {
+                options.LoginPath = "/Auth/Login";
+                options.LogoutPath = "/Auth/Logout";
+                options.AccessDeniedPath = "/Auth/AccessDenied";
+                options.ExpireTimeSpan = TimeSpan.FromDays(7);
+                options.SlidingExpiration = true;
+            });
 
             // ── SignalR ───────────────────────────────────────────────────────
             builder.Services.AddSignalR();
@@ -69,10 +95,10 @@ namespace FinalProject_PRN222_Group7
                 options.Conventions.AuthorizeFolder("/Documents");
                 options.Conventions.AuthorizeFolder("/Chat");
                 options.Conventions.AuthorizeFolder("/Quiz");
-                options.Conventions.AuthorizeFolder("/Reports");
-                options.Conventions.AuthorizeFolder("/Packages");
-                options.Conventions.AuthorizeFolder("/Payments");
-                options.Conventions.AuthorizeFolder("/Benchmark");
+                options.Conventions.AuthorizeFolder("/Reports", "StaffOnly");
+                options.Conventions.AuthorizeFolder("/Packages", "StudentOnly");
+                options.Conventions.AuthorizeFolder("/Payments", "StudentOnly");
+                options.Conventions.AuthorizeFolder("/Benchmark", "StaffOnly");
                 options.Conventions.AuthorizeFolder("/Courses");
                 options.Conventions.AuthorizeFolder("/Admin", "AdminOnly");
             });
@@ -86,16 +112,13 @@ namespace FinalProject_PRN222_Group7
             });
             builder.Services.AddDistributedMemoryCache();
 
-            // ── HTTP Client (for RAG Python API) ─────────────────────────────
-            builder.Services.AddHttpClient("RAGService", client =>
-            {
-                client.BaseAddress = new Uri(builder.Configuration["RAGService:BaseUrl"] ?? "http://localhost:8000");
-                client.Timeout = TimeSpan.FromSeconds(60);
-            });
             // ── Authorization Policies ────────────────────────────────────────
             builder.Services.AddAuthorization(options =>
             {
                 options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+                options.AddPolicy("LecturerOnly", policy => policy.RequireRole("Lecturer"));
+                options.AddPolicy("StudentOnly", policy => policy.RequireRole("Student"));
+                options.AddPolicy("StaffOnly", policy => policy.RequireRole("Admin", "Lecturer"));
             });
 
             var app = builder.Build();
@@ -121,84 +144,13 @@ namespace FinalProject_PRN222_Group7
             // ── Seed Data ─────────────────────────────────────────────────────
             using (var scope = app.Services.CreateScope())
             {
-                var services = scope.ServiceProvider;
-                await SeedDataAsync(services);
+                var seedDataService = scope.ServiceProvider.GetRequiredService<ISeedDataService>();
+                await seedDataService.SeedAsync();
             }
 
             app.Run();
         }
 
-        private static async Task SeedDataAsync(IServiceProvider services)
-        {
-            var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-            var userManager = services.GetRequiredService<UserManager<AppUser>>();
-            var db = services.GetRequiredService<AppDbContext>();
-
-            await db.Database.MigrateAsync();
-
-            // Seed Roles
-            string[] roles = ["Admin", "Lecturer", "Student"];
-            foreach (var role in roles)
-            {
-                if (!await roleManager.RoleExistsAsync(role))
-                    await roleManager.CreateAsync(new IdentityRole(role));
-            }
-
-            // Seed Admin
-            if (await userManager.FindByEmailAsync("admin@lms.edu.vn") == null)
-            {
-                var admin = new AppUser { UserName = "admin@lms.edu.vn", Email = "admin@lms.edu.vn", FullName = "System Admin", EmailConfirmed = true };
-                var result = await userManager.CreateAsync(admin, "Admin@123");
-                if (result.Succeeded) await userManager.AddToRoleAsync(admin, "Admin");
-            }
-
-            // Seed Lecturer
-            if (await userManager.FindByEmailAsync("lecturer@lms.edu.vn") == null)
-            {
-                var lecturer = new AppUser { UserName = "lecturer@lms.edu.vn", Email = "lecturer@lms.edu.vn", FullName = "Nguyễn Văn Thầy", EmailConfirmed = true };
-                var result = await userManager.CreateAsync(lecturer, "Lecturer@123");
-                if (result.Succeeded) await userManager.AddToRoleAsync(lecturer, "Lecturer");
-            }
-
-            // Seed Student
-            if (await userManager.FindByEmailAsync("student@lms.edu.vn") == null)
-            {
-                var student = new AppUser { UserName = "student@lms.edu.vn", Email = "student@lms.edu.vn", FullName = "Trần Thị Sinh", EmailConfirmed = true };
-                var result = await userManager.CreateAsync(student, "Student@123");
-                if (result.Succeeded) await userManager.AddToRoleAsync(student, "Student");
-            }
-
-            // Seed Course (nếu chưa có)
-            if (!db.Courses.Any())
-            {
-                var lecturer = await userManager.FindByEmailAsync("lecturer@lms.edu.vn");
-                if (lecturer != null)
-                {
-                    db.Courses.AddRange(
-                        new DAL.Entities.Course { Name = "Lập trình .NET", Code = "PRN222", Description = "Lập trình web với ASP.NET Core", LecturerId = lecturer.Id },
-                        new DAL.Entities.Course { Name = "Trí tuệ nhân tạo", Code = "AI301", Description = "Nhập môn AI và Machine Learning", LecturerId = lecturer.Id },
-                        new DAL.Entities.Course { Name = "Cơ sở dữ liệu", Code = "DBI202", Description = "SQL Server và Entity Framework", LecturerId = lecturer.Id }
-                    );
-                    await db.SaveChangesAsync();
-                }
-            }
-
-            // Assign Basic package to student
-            var studentUser = await userManager.FindByEmailAsync("student@lms.edu.vn");
-            if (studentUser != null && !db.UserPackages.Any(up => up.UserId == studentUser.Id))
-            {
-                db.UserPackages.Add(new DAL.Entities.UserPackage
-                {
-                    UserId = studentUser.Id,
-                    PackageId = 1,
-                    StartDate = DateTime.UtcNow,
-                    EndDate = DateTime.UtcNow.AddYears(1),
-                    RemainingQueries = 50,
-                    IsActive = true
-                });
-                await db.SaveChangesAsync();
-            }
-        }
     }
 
     // ── SignalR Chat Hub ──────────────────────────────────────────────────────

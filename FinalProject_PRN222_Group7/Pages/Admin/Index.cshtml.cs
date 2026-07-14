@@ -16,19 +16,25 @@ namespace FinalProject_PRN222_Group7.Pages.Admin
     {
         private readonly IReportService _reportService;
         private readonly IPaymentService _paymentService;
+        private readonly ISubscriptionService _subscriptionService;
+        private readonly ICreditWalletService _walletService;
         private readonly UserManager<AppUser> _userManager;
         private readonly AppDbContext _context;
         private readonly IEmailService _emailService;
 
         public IndexModel(
-            IReportService reportService, 
-            IPaymentService paymentService, 
-            UserManager<AppUser> userManager, 
+            IReportService reportService,
+            IPaymentService paymentService,
+            ISubscriptionService subscriptionService,
+            ICreditWalletService walletService,
+            UserManager<AppUser> userManager,
             AppDbContext context,
             IEmailService emailService)
         {
             _reportService = reportService;
             _paymentService = paymentService;
+            _subscriptionService = subscriptionService;
+            _walletService = walletService;
             _userManager = userManager;
             _context = context;
             _emailService = emailService;
@@ -55,10 +61,8 @@ namespace FinalProject_PRN222_Group7.Pages.Admin
                 var roles = await _userManager.GetRolesAsync(u);
                 UserRoles[u.Id] = roles.FirstOrDefault() ?? "Student";
 
-                var pkg = await _context.UserPackages
-                    .Include(up => up.Package)
-                    .FirstOrDefaultAsync(up => up.UserId == u.Id && up.IsActive);
-                UserPackages[u.Id] = pkg?.Package?.Name ?? "Basic";
+                var pkg = await _paymentService.GetUserPackageAsync(u.Id);
+                UserPackages[u.Id] = pkg?.Package?.Name ?? "Free";
             }
         }
 
@@ -87,16 +91,12 @@ namespace FinalProject_PRN222_Group7.Pages.Admin
 
                 if (targetRole == "Student")
                 {
-                    _context.UserPackages.Add(new UserPackage
-                    {
-                        UserId = user.Id,
-                        PackageId = 1,
-                        StartDate = DateTime.UtcNow,
-                        EndDate = DateTime.UtcNow.AddYears(1),
-                        RemainingQueries = 50,
-                        IsActive = true
-                    });
-                    await _context.SaveChangesAsync();
+                    await _walletService.EnsureWalletAsync(user.Id, ["Student"]);
+                    await _subscriptionService.ActivatePackageAsync(user.Id, 10);
+                }
+                else
+                {
+                    await _walletService.EnsureWalletAsync(user.Id, [targetRole]);
                 }
 
                 // Send email notification via SMTP
@@ -166,16 +166,12 @@ namespace FinalProject_PRN222_Group7.Pages.Admin
 
                     if (targetRole == "Student")
                     {
-                        _context.UserPackages.Add(new UserPackage
-                        {
-                            UserId = user.Id,
-                            PackageId = 1,
-                            StartDate = DateTime.UtcNow,
-                            EndDate = DateTime.UtcNow.AddYears(1),
-                            RemainingQueries = 50,
-                            IsActive = true
-                        });
-                        await _context.SaveChangesAsync();
+                        await _walletService.EnsureWalletAsync(user.Id, ["Student"]);
+                        await _subscriptionService.ActivatePackageAsync(user.Id, 10);
+                    }
+                    else
+                    {
+                        await _walletService.EnsureWalletAsync(user.Id, [targetRole]);
                     }
 
                     // Gửi mail cho từng user
