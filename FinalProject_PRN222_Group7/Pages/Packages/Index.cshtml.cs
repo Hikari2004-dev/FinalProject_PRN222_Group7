@@ -3,6 +3,7 @@ using FinalProject_PRN222_Group7.DAL.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using System.Threading.Tasks;
 
 namespace FinalProject_PRN222_Group7.Pages.Packages
 {
@@ -18,55 +19,42 @@ namespace FinalProject_PRN222_Group7.Pages.Packages
         }
 
         public IList<Package> Packages { get; set; } = new List<Package>();
-        public string? CurrentUserId { get; set; }
-        public bool CanBuy { get; set; }
+        public UserPackage? UserCurrentPackage { get; set; }
+        public int RemainingQueries { get; set; }
+        public bool IsStudent { get; set; }
 
         public async Task OnGetAsync()
         {
             Packages = (await _paymentService.GetPackagesAsync()).ToList();
+            IsStudent = User.IsInRole("Student");
 
-            if (User.Identity?.IsAuthenticated == true)
+            if (User.Identity?.IsAuthenticated == true && IsStudent)
             {
                 var user = await _userManager.GetUserAsync(User);
-                CurrentUserId = user?.Id;
-
-                var isStudent = User.IsInRole("Student");
-                var isLecturer = User.IsInRole("Lecturer");
-                CanBuy = isStudent || isLecturer;
-            }
-            else
-            {
-                CanBuy = false;
+                if (user != null)
+                {
+                    UserCurrentPackage = await _paymentService.GetUserPackageAsync(user.Id);
+                    if (UserCurrentPackage != null)
+                    {
+                        RemainingQueries = UserCurrentPackage.RemainingQueries;
+                    }
+                }
             }
         }
 
-        public async Task<IActionResult> OnPostBuyAsync(int packageId)
+        public async Task<IActionResult> OnPostSubscribeAsync(int packageId)
         {
             if (!User.Identity?.IsAuthenticated ?? true)
+            {
                 return RedirectToPage("/Auth/Login");
+            }
 
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return RedirectToPage("/Auth/Login");
 
-            var isStudent = User.IsInRole("Student");
-            var isLecturer = User.IsInRole("Lecturer");
-            if (!isStudent && !isLecturer)
-                return Forbid();
-
-            var packages = await _paymentService.GetPackagesAsync();
-            var selectedPackage = packages.FirstOrDefault(p => p.Id == packageId);
-            if (selectedPackage == null)
-                return NotFound();
-
-            if (selectedPackage.Price <= 0)
-            {
-                TempData["Success"] = $"Bạn đã kích hoạt gói '{selectedPackage.Name}'.";
-                return RedirectToPage();
-            }
-
             var payment = await _paymentService.CreatePaymentAsync(user.Id, packageId);
-            TempData["Success"] = $"Đã tạo yêu cầu mua gói '{selectedPackage.Name}'. Mã hóa đơn: {payment.InvoiceNumber}";
-            return RedirectToPage();
+            TempData["Success"] = "Đã tạo yêu cầu đăng ký gói. Vui lòng liên hệ quản trị viên để hoàn tất thanh toán.";
+            return RedirectToPage("/Payments");
         }
     }
 }
