@@ -1,0 +1,87 @@
+@page
+@model FinalProject_PRN222_Group7.Pages.Packages.IndexModel
+@{
+    ViewData["Title"] = "Gói dịch vụ";
+    var currentPackage = Model.Packages.FirstOrDefault();
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Gói dịch vụ</h1>
+        <p class="page-subtitle">Chọn gói phù hợp để mở rộng quyền sử dụng AI và tài liệu</p>
+    </div>
+    @if (Model.CurrentUserId != null)
+    {
+        <span class="badge badge-accent">Đang đăng nhập</span>
+    }
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div style="background:var(--success-muted);border:1px solid rgba(16,185,129,0.25);border-radius:var(--radius);padding:12px 14px;margin-bottom:20px;font-size:0.875rem;color:var(--success)">
+        @TempData["Success"]
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div style="background:var(--danger-muted);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius);padding:12px 14px;margin-bottom:20px;font-size:0.875rem;color:var(--danger)">
+        @TempData["Error"]
+    </div>
+}
+
+<div class="pricing-grid">
+    @foreach (var pkg in Model.Packages)
+    {
+        var isFeatured = currentPackage != null && pkg.Id == currentPackage.Id;
+        var queryLimit = pkg.MonthlyAiQueries == -1 ? "Không giới hạn" : $"{pkg.MonthlyAiQueries:N0} lượt hỏi / tháng";
+
+        <div class="pricing-card @(isFeatured ? "featured" : "")">
+            @if (isFeatured)
+            {
+                <div class="pricing-featured-badge">Đang dùng</div>
+            }
+
+            <div class="pricing-tier">@pkg.Tier</div>
+            <div class="pricing-price">@pkg.Price.ToString("N0") đ</div>
+            <div class="pricing-period">@pkg.Description</div>
+
+            <ul class="pricing-features">
+                <li>
+                    <span style="color:var(--success)">●</span>
+                    <span>Tên gói: <strong>@pkg.Name</strong></span>
+                </li>
+                <li>
+                    <span style="color:var(--success)">●</span>
+                    <span>Giới hạn truy vấn: <strong>@queryLimit</strong></span>
+                </li>
+            </ul>
+
+            @if (Model.CanBuy)
+            {
+                <form method="post" asp-page-handler="Buy" asp-route-packageId="@pkg.Id" onsubmit="return confirm('Xác nhận mua gói @pkg.Name với giá @pkg.Price.ToString("N0") đ?');">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn @(isFeatured ? "btn-secondary" : "btn-primary") w-full">
+                        @(isFeatured ? "Đang sử dụng" : "Buy")
+                    </button>
+                </form>
+            }
+            else if (User.Identity?.IsAuthenticated == true)
+            {
+                <button class="btn btn-secondary w-full" disabled>Chỉ dành cho sinh viên / giảng viên</button>
+            }
+            else
+            {
+                <a href="/Auth/Login" class="btn btn-primary w-full">Đăng nhập để mua</a>
+            }
+        </div>
+    }
+</div>
+
+@if (!Model.Packages.Any())
+{
+    <div class="empty-state">
+        <div class="empty-icon">📦</div>
+        <div class="empty-title">Chưa có gói dịch vụ</div>
+        <div class="empty-hint">Vui lòng quay lại sau khi hệ thống cập nhật danh sách gói.</div>
+    </div>
+}
