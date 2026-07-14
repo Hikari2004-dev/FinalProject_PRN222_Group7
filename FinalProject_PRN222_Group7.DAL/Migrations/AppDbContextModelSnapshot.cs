@@ -154,12 +154,14 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
 
                     b.Property<string>("RunById")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<int>("TotalQuestions")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("RunById");
 
                     b.ToTable("BenchmarkRuns");
                 });
@@ -967,6 +969,17 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
                         .HasForeignKey("UserPackageId");
 
                     b.Navigation("UserPackage");
+                });
+
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.BenchmarkRun", b =>
+                {
+                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.AppUser", "RunBy")
+                        .WithMany()
+                        .HasForeignKey("RunById")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("RunBy");
                 });
 
             modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.Chapter", b =>
