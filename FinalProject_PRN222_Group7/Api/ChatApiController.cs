@@ -16,28 +16,28 @@ namespace FinalProject_PRN222_Group7.Api
     public class ChatApiController : ControllerBase
     {
         private readonly IChatService _chatService;
+        private readonly IDocumentService _docService;
         private readonly IAiUsageGate _aiUsageGate;
         private readonly UserManager<AppUser> _userManager;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<ChatApiController> _logger;
-        private readonly AppDbContext _context;
         private readonly IConfiguration _configuration;
 
         public ChatApiController(
             IChatService chatService,
+            IDocumentService docService,
             IAiUsageGate aiUsageGate,
             UserManager<AppUser> userManager,
             IHttpClientFactory httpClientFactory,
             ILogger<ChatApiController> logger,
-            AppDbContext context,
             IConfiguration configuration)
         {
             _chatService = chatService;
+            _docService = docService;
             _aiUsageGate = aiUsageGate;
             _userManager = userManager;
             _httpClientFactory = httpClientFactory;
             _logger = logger;
-            _context = context;
             _configuration = configuration;
         }
 
@@ -80,11 +80,7 @@ namespace FinalProject_PRN222_Group7.Api
             var roles = await _userManager.GetRolesAsync(user);
             var sessionId = req.SessionId ?? (await _chatService.CreateSessionAsync(user.Id, req.CourseId)).Id;
 
-            var history = await _context.ChatMessages
-                .Where(m => m.ChatSessionId == sessionId)
-                .OrderByDescending(m => m.Id)
-                .Take(6)
-                .ToListAsync();
+            var history = (await _chatService.GetRecentMessagesAsync(sessionId, 6)).ToList();
             history.Reverse();
             var historyText = string.Join("\n", history.Select(h => $"{(h.Role == MessageRole.User ? "Học sinh" : "AI")}: {h.Content}"));
 
@@ -117,10 +113,11 @@ namespace FinalProject_PRN222_Group7.Api
 
         private async Task<ChatGenerationResult> GenerateAnswerAsync(SendRequest req, string historyText)
         {
-            var dbChunks = await _context.DocumentChunks
-                .Include(c => c.Document)
-                .Where(c => c.Document.CourseId == req.CourseId && c.Document.Status == DocumentStatus.Indexed)
-                .ToListAsync();
+            var dbChunks = new List<DocumentChunk>();
+            if (req.CourseId.HasValue)
+            {
+                dbChunks = (await _docService.GetIndexedChunksByCourseAsync(req.CourseId.Value)).ToList();
+            }
 
             var keywords = req.Question.ToLower()
                 .Split(new[] { ' ', '?', ',', '.', '!', '-', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)

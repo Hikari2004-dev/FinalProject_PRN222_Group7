@@ -13,23 +13,23 @@ namespace FinalProject_PRN222_Group7.Pages.Dashboard
         private readonly IDocumentService _docService;
         private readonly IChatService _chatService;
         private readonly ICreditWalletService _walletService;
+        private readonly IQuizService _quizService;
         private readonly UserManager<AppUser> _userManager;
-        private readonly AppDbContext _context;
 
         public IndexModel(
             IReportService reportService,
             IDocumentService docService,
             IChatService chatService,
             ICreditWalletService walletService,
-            UserManager<AppUser> userManager,
-            AppDbContext context)
+            IQuizService quizService,
+            UserManager<AppUser> userManager)
         {
             _reportService = reportService;
             _docService = docService;
             _chatService = chatService;
             _walletService = walletService;
+            _quizService = quizService;
             _userManager = userManager;
-            _context = context;
         }
 
         public string UserName { get; set; } = string.Empty;
@@ -75,9 +75,7 @@ namespace FinalProject_PRN222_Group7.Pages.Dashboard
             RecentSessions = sessions.Take(5).ToList();
             MyChatSessions = sessions.Count();
 
-            var attempts = await _context.QuizAttempts
-                .Where(a => a.UserId == user.Id && a.IsCompleted)
-                .ToListAsync();
+            var attempts = (await _quizService.GetUserCompletedAttemptsAsync(user.Id)).ToList();
             MyQuizAttempts = attempts.Count;
             MyAvgScore = attempts.Any() ? (int)attempts.Average(a => a.Score) : 0;
 

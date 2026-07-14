@@ -24,7 +24,6 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
         private readonly ICourseService _courseService;
         private readonly IQuestionBankService _questionBankService;
         private readonly UserManager<AppUser> _userManager;
-        private readonly AppDbContext _context;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
         private readonly IAiUsageGate _aiUsageGate;
@@ -36,7 +35,6 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
             ICourseService courseService,
             IQuestionBankService questionBankService,
             UserManager<AppUser> userManager,
-            AppDbContext context,
             IHttpClientFactory httpClientFactory,
             IConfiguration configuration,
             IAiUsageGate aiUsageGate,
@@ -47,7 +45,6 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
             _courseService = courseService;
             _questionBankService = questionBankService;
             _userManager = userManager;
-            _context = context;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
             _aiUsageGate = aiUsageGate;
@@ -89,30 +86,42 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
                 allQuizzes.AddRange(quizzes);
             }
 
-            Quizzes = allQuizzes.OrderByDescending(q => q.CreatedAt);
+            var isLecturer = User.IsInRole("Lecturer");
+            var isAdmin = User.IsInRole("Admin");
+
+            if (isLecturer || isAdmin)
+            {
+                Quizzes = allQuizzes
+                    .Where(q => q.IsAiGenerated)
+                    .OrderByDescending(q => q.CreatedAt)
+                    .ToList();
+            }
+            else if (user != null)
+            {
+                var userQuizIds = await _quizService.GetUserAttemptedQuizIdsAsync(user.Id);
+
+                Quizzes = allQuizzes
+                    .Where(q => !q.IsAiGenerated && userQuizIds.Contains(q.Id))
+                    .OrderByDescending(q => q.CreatedAt)
+                    .ToList();
+            }
+            else
+            {
+                Quizzes = new List<DAL.Entities.Quiz>();
+            }
 
             if (user != null)
             {
                 CurrentUserId = user.Id;
-                UserAttempts = await _context.QuizAttempts
-                    .Where(a => a.UserId == user.Id && a.IsCompleted)
-                    .OrderByDescending(a => a.CompletedAt)
-                    .ToListAsync();
+                UserAttempts = await _quizService.GetUserCompletedAttemptsAsync(user.Id);
 
-                var isLecturer = User.IsInRole("Lecturer");
                 if (isLecturer)
                 {
-                    IndexedDocuments = await _context.Documents
-                        .Include(d => d.Course)
-                        .Where(d => d.Status == DocumentStatus.Indexed && d.Course.LecturerId == user.Id)
-                        .ToListAsync();
+                    IndexedDocuments = await _docService.GetIndexedDocumentsAsync(user.Id);
                 }
                 else
                 {
-                    IndexedDocuments = await _context.Documents
-                        .Include(d => d.Course)
-                        .Where(d => d.Status == DocumentStatus.Indexed)
-                        .ToListAsync();
+                    IndexedDocuments = await _docService.GetIndexedDocumentsAsync();
                 }
             }
         }
@@ -129,9 +138,7 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
                 return new JsonResult(new { success = false, error = "Bạn không có quyền thực hiện chức năng này." });
             }
 
-            var doc = await _context.Documents
-                .Include(d => d.Course)
-                .FirstOrDefaultAsync(d => d.Id == documentId);
+            var doc = await _docService.GetDocumentAsync(documentId);
 
             if (doc == null || doc.Course.LecturerId != user.Id)
                 return new JsonResult(new { success = false, error = "Tài liệu không tồn tại hoặc bạn không có quyền sở hữu môn học này." });
@@ -190,17 +197,14 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
 
         private async Task<QuizGenerationResult> GenerateQuestionsAsync(int documentId, int courseId, int numQuestions)
         {
-            var existingQuestions = await _context.QuestionBankItems
-                .Where(q => q.CourseId == courseId)
+            var existingQuestions = (await _questionBankService.GetQuestionsByCourseAsync(courseId))
                 .Select(q => q.Content)
                 .Distinct()
-                .ToListAsync();
+                .ToList();
 
-            var chunks = await _context.DocumentChunks
-                .Where(c => c.DocumentId == documentId)
-                .OrderBy(c => c.ChunkIndex)
+            var chunks = (await _docService.GetChunksByDocumentIdAsync(documentId))
                 .Select(c => c.Content)
-                .ToListAsync();
+                .ToList();
             var contextText = string.Join("\n", chunks);
 
             var geminiSection = _configuration.GetSection("Gemini");
@@ -422,9 +426,8 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
             // Normalize: null/empty chapterIds = all chapters
             var hasChapterFilter = chapterIds != null && chapterIds.Count > 0;
 
-            var count = await _context.QuestionBankItems.CountAsync(q =>
-                q.CourseId == courseId &&
-                (!hasChapterFilter || chapterIds!.Contains(q.ChapterId ?? -1)));
+            var bankQuestions = await _questionBankService.GetQuestionsByCourseAsync(courseId);
+            var count = bankQuestions.Count(q => !hasChapterFilter || chapterIds!.Contains(q.ChapterId ?? -1));
 
             if (count == 0)
             {

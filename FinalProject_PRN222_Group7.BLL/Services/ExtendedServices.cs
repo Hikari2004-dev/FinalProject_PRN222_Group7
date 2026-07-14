@@ -18,6 +18,8 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         Task<QuizAttempt> SubmitAttemptAsync(int attemptId, Dictionary<int, char> answers);
         Task<QuizAttempt?> GetAttemptAsync(int id);
         Task DeleteQuizAsync(int id);
+        Task<IEnumerable<int>> GetUserAttemptedQuizIdsAsync(string userId);
+        Task<IEnumerable<QuizAttempt>> GetUserCompletedAttemptsAsync(string userId);
     }
 
     public class QuizService : IQuizService
@@ -110,6 +112,19 @@ namespace FinalProject_PRN222_Group7.BLL.Services
             _context.Quizzes.Remove(quiz);
             await _context.SaveChangesAsync();
         }
+
+        public async Task<IEnumerable<int>> GetUserAttemptedQuizIdsAsync(string userId)
+            => await _context.QuizAttempts
+                .Where(a => a.UserId == userId)
+                .Select(a => a.QuizId)
+                .Distinct()
+                .ToListAsync();
+
+        public async Task<IEnumerable<QuizAttempt>> GetUserCompletedAttemptsAsync(string userId)
+            => await _context.QuizAttempts
+                .Where(a => a.UserId == userId && a.IsCompleted)
+                .OrderByDescending(a => a.CompletedAt)
+                .ToListAsync();
     }
 
     public record PaymentCheckoutResult(Payment Payment, string CheckoutUrl);
@@ -131,6 +146,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         Task RegisterWebhookAsync(string webhookUrl);
         Task<IEnumerable<Payment>> GetUserPaymentsAsync(string userId);
         Task<IEnumerable<Payment>> GetAllPaymentsAsync();
+        Task UpdatePackagePriceAsync(int packageId, decimal newPrice);
     }
 
     public class PaymentService : IPaymentService
@@ -440,45 +456,98 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         private static string ResolveSignature(Webhook webhook)
             => webhook.GetType().GetProperty("Signature")?.GetValue(webhook)?.ToString() ?? string.Empty;
 
+        public async Task UpdatePackagePriceAsync(int packageId, decimal newPrice)
+        {
+            var package = await _context.Packages.FirstOrDefaultAsync(p => p.Id == packageId);
+            if (package != null)
+            {
+                package.Price = newPrice;
+                package.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+        }
+
         private static string BuildInvoiceNumber(string prefix)
             => $"{prefix}-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..8].ToUpper()}";
     }
 
     public interface IReportService
     {
-        Task<DashboardStats> GetDashboardStatsAsync();
-        Task<IEnumerable<DailyQueryStat>> GetDailyQueryStatsAsync(int days = 30);
-        Task<IEnumerable<CourseQuizStat>> GetCourseQuizStatsAsync();
+        Task<DashboardStats> GetDashboardStatsAsync(string? userId = null, string? lecturerId = null);
+        Task<IEnumerable<DailyQueryStat>> GetDailyQueryStatsAsync(int days = 30, string? userId = null, string? lecturerId = null);
+        Task<IEnumerable<CourseQuizStat>> GetCourseQuizStatsAsync(string? userId = null, string? lecturerId = null);
+        Task<IEnumerable<AppUser>> GetRecentUsersAsync(int count = 20);
+        Task<int[]> GetQuizScoreDistributionAsync(string? userId = null, string? lecturerId = null);
+        Task<IEnumerable<PackageRevenueDto>> GetRevenueByPackageAsync();
     }
 
     public record DashboardStats(int TotalUsers, int TotalDocuments, int TotalSessions, int TotalQuizAttempts, decimal TotalRevenue, int IndexedDocuments);
     public record DailyQueryStat(DateTime Date, int Count);
     public record CourseQuizStat(string CourseName, double AverageScore, int AttemptCount);
+    public record PackageRevenueDto(string PackageName, int Count, decimal Total);
 
     public class ReportService : IReportService
     {
         private readonly AppDbContext _context;
         public ReportService(AppDbContext context) { _context = context; }
 
-        public async Task<DashboardStats> GetDashboardStatsAsync()
+        public async Task<DashboardStats> GetDashboardStatsAsync(string? userId = null, string? lecturerId = null)
         {
-            var totalUsers = await _context.Users.CountAsync();
-            var totalDocs = await _context.Documents.CountAsync();
-            var indexedDocs = await _context.Documents.CountAsync(d => d.Status == DocumentStatus.Indexed);
-            var totalSessions = await _context.ChatSessions.CountAsync();
-            var totalAttempts = await _context.QuizAttempts.CountAsync(a => a.IsCompleted);
-            var totalRevenue = await _context.Payments
-                .Where(p => p.Status == PaymentStatus.Completed)
-                .SumAsync(p => p.Amount);
+            if (userId != null)
+            {
+                var userDocs = await _context.Documents.CountAsync(d => d.Status == DocumentStatus.Indexed);
+                var userSessions = await _context.ChatSessions.CountAsync(s => s.UserId == userId);
+                var userAttempts = await _context.QuizAttempts.CountAsync(a => a.UserId == userId && a.IsCompleted);
+                var userQueries = await _context.ChatMessages
+                    .CountAsync(m => m.ChatSession.UserId == userId && m.Role == MessageRole.User);
 
-            return new DashboardStats(totalUsers, totalDocs, totalSessions, totalAttempts, totalRevenue, indexedDocs);
+                return new DashboardStats(userQueries, userDocs, userSessions, userAttempts, 0, userDocs);
+            }
+            else if (lecturerId != null)
+            {
+                var lecturerStudents = await _context.QuizAttempts
+                    .Where(a => a.Quiz.Course.LecturerId == lecturerId)
+                    .Select(a => a.UserId)
+                    .Distinct()
+                    .CountAsync();
+                var lecturerDocs = await _context.Documents.CountAsync(d => d.Course.LecturerId == lecturerId);
+                var indexedDocs = await _context.Documents.CountAsync(d => d.Status == DocumentStatus.Indexed && d.Course.LecturerId == lecturerId);
+                var lecturerSessions = await _context.ChatSessions.CountAsync(s => s.Course.LecturerId == lecturerId);
+                var lecturerAttempts = await _context.QuizAttempts.CountAsync(a => a.IsCompleted && a.Quiz.Course.LecturerId == lecturerId);
+
+                return new DashboardStats(lecturerStudents, lecturerDocs, lecturerSessions, lecturerAttempts, 0, indexedDocs);
+            }
+            else
+            {
+                var totalUsers = await _context.Users.CountAsync();
+                var totalDocs = await _context.Documents.CountAsync();
+                var indexedDocs = await _context.Documents.CountAsync(d => d.Status == DocumentStatus.Indexed);
+                var totalSessions = await _context.ChatSessions.CountAsync();
+                var totalAttempts = await _context.QuizAttempts.CountAsync(a => a.IsCompleted);
+                var totalRevenue = await _context.Payments
+                    .Where(p => p.Status == PaymentStatus.Completed)
+                    .SumAsync(p => p.Amount);
+
+                return new DashboardStats(totalUsers, totalDocs, totalSessions, totalAttempts, totalRevenue, indexedDocs);
+            }
         }
 
-        public async Task<IEnumerable<DailyQueryStat>> GetDailyQueryStatsAsync(int days = 30)
+        public async Task<IEnumerable<DailyQueryStat>> GetDailyQueryStatsAsync(int days = 30, string? userId = null, string? lecturerId = null)
         {
             var from = DateTime.UtcNow.AddDays(-days);
-            var data = await _context.ChatMessages
-                .Where(m => m.Role == MessageRole.User && m.CreatedAt >= from)
+            var query = _context.ChatMessages
+                .Where(m => m.Role == MessageRole.User && m.CreatedAt >= from);
+
+            if (userId != null)
+            {
+                query = query.Where(m => m.ChatSession.UserId == userId);
+            }
+            else if (lecturerId != null)
+            {
+                query = query.Where(m => m.ChatSession.Course.LecturerId == lecturerId);
+            }
+
+            var data = await query
                 .GroupBy(m => m.CreatedAt.Date)
                 .Select(g => new { Date = g.Key, Count = g.Count() })
                 .OrderBy(g => g.Date)
@@ -487,16 +556,65 @@ namespace FinalProject_PRN222_Group7.BLL.Services
             return data.Select(d => new DailyQueryStat(d.Date, d.Count));
         }
 
-        public async Task<IEnumerable<CourseQuizStat>> GetCourseQuizStatsAsync()
+        public async Task<IEnumerable<CourseQuizStat>> GetCourseQuizStatsAsync(string? userId = null, string? lecturerId = null)
         {
-            var data = await _context.QuizAttempts
-                .Where(a => a.IsCompleted)
+            var query = _context.QuizAttempts
+                .Where(a => a.IsCompleted);
+
+            if (userId != null)
+            {
+                query = query.Where(a => a.UserId == userId);
+            }
+            else if (lecturerId != null)
+            {
+                query = query.Where(a => a.Quiz.Course.LecturerId == lecturerId);
+            }
+
+            var data = await query
                 .Include(a => a.Quiz).ThenInclude(q => q.Course)
                 .GroupBy(a => a.Quiz.Course.Name)
                 .Select(g => new { CourseName = g.Key, AvgScore = g.Average(a => a.Score), Count = g.Count() })
                 .ToListAsync();
 
             return data.Select(d => new CourseQuizStat(d.CourseName, d.AvgScore, d.Count));
+        }
+
+        public async Task<IEnumerable<AppUser>> GetRecentUsersAsync(int count = 20)
+            => await _context.Users
+                .OrderByDescending(u => u.CreatedAt)
+                .Take(count)
+                .ToListAsync();
+
+        public async Task<int[]> GetQuizScoreDistributionAsync(string? userId = null, string? lecturerId = null)
+        {
+            var query = _context.QuizAttempts.Where(a => a.IsCompleted);
+            if (userId != null)
+            {
+                query = query.Where(a => a.UserId == userId);
+            }
+            else if (lecturerId != null)
+            {
+                query = query.Where(a => a.Quiz.Course.LecturerId == lecturerId);
+            }
+
+            var attempts = await query.ToListAsync();
+            return new[]
+            {
+                attempts.Count(a => a.Score >= 90),
+                attempts.Count(a => a.Score >= 70 && a.Score < 90),
+                attempts.Count(a => a.Score >= 50 && a.Score < 70),
+                attempts.Count(a => a.Score < 50)
+            };
+        }
+
+        public async Task<IEnumerable<PackageRevenueDto>> GetRevenueByPackageAsync()
+        {
+            return await _context.Payments
+                .Where(p => p.Status == PaymentStatus.Completed)
+                .Include(p => p.Package)
+                .GroupBy(p => p.Package.Name)
+                .Select(g => new PackageRevenueDto(g.Key, g.Count(), g.Sum(p => p.Amount)))
+                .ToListAsync();
         }
     }
 
@@ -700,6 +818,31 @@ namespace FinalProject_PRN222_Group7.BLL.Services
             {
                 action(obj);
             }
+        }
+    }
+
+    public interface IBenchmarkService
+    {
+        Task<IEnumerable<BenchmarkRun>> GetBenchmarkRunsAsync();
+        Task CreateBenchmarkRunAsync(BenchmarkRun run);
+    }
+
+    public class BenchmarkService : IBenchmarkService
+    {
+        private readonly AppDbContext _context;
+
+        public BenchmarkService(AppDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<IEnumerable<BenchmarkRun>> GetBenchmarkRunsAsync()
+            => await _context.BenchmarkRuns.OrderByDescending(r => r.RunAt).ToListAsync();
+
+        public async Task CreateBenchmarkRunAsync(BenchmarkRun run)
+        {
+            _context.BenchmarkRuns.Add(run);
+            await _context.SaveChangesAsync();
         }
     }
 }

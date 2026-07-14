@@ -1,3 +1,4 @@
+using FinalProject_PRN222_Group7.BLL.Services;
 using FinalProject_PRN222_Group7.DAL.Data;
 using FinalProject_PRN222_Group7.DAL.Entities;
 using Microsoft.AspNetCore.Identity;
@@ -9,12 +10,12 @@ namespace FinalProject_PRN222_Group7.Pages.Benchmark
 {
     public class IndexModel : PageModel
     {
-        private readonly AppDbContext _context;
+        private readonly IBenchmarkService _benchmarkService;
         private readonly UserManager<AppUser> _userManager;
 
-        public IndexModel(AppDbContext context, UserManager<AppUser> userManager)
+        public IndexModel(IBenchmarkService benchmarkService, UserManager<AppUser> userManager)
         {
-            _context = context;
+            _benchmarkService = benchmarkService;
             _userManager = userManager;
         }
 
@@ -22,7 +23,7 @@ namespace FinalProject_PRN222_Group7.Pages.Benchmark
 
         public async Task OnGetAsync()
         {
-            Runs = await _context.BenchmarkRuns.OrderByDescending(r => r.RunAt).ToListAsync();
+            Runs = await _benchmarkService.GetBenchmarkRunsAsync();
         }
 
         public async Task<IActionResult> OnPostAsync(string name, string embeddingModel, int chunkSize, int chunkOverlap, int totalQuestions)
@@ -57,8 +58,7 @@ namespace FinalProject_PRN222_Group7.Pages.Benchmark
 
             run.OverallAccuracy = (run.Faithfulness + run.AnswerRelevancy + run.ContextPrecision + run.ContextRecall) / 4.0;
 
-            _context.BenchmarkRuns.Add(run);
-            await _context.SaveChangesAsync();
+            await _benchmarkService.CreateBenchmarkRunAsync(run);
 
             return RedirectToPage();
         }

@@ -1,0 +1,32 @@
+@page
+@model FinalProject_PRN222_Group7.Pages.Auth.AccessDeniedModel
+@{
+    ViewData["Title"] = "Từ chối truy cập";
+}
+
+<div class="empty-state" style="padding: 60px 24px; text-align: center; max-width: 500px; margin: 80px auto;">
+    <div class="empty-icon" style="font-size: 4.5rem; margin-bottom: 24px; animation: bounce 2s infinite;">
+        🔒
+    </div>
+    <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--text-primary); margin-bottom: 12px; font-family: var(--font-sans)">
+        Từ chối truy cập
+    </h1>
+    <p style="font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 32px;">
+        Tài khoản của bạn không có đủ đặc quyền để truy cập trang này. Vui lòng liên hệ với quản trị viên nếu bạn cho rằng đây là một sự nhầm lẫn.
+    </p>
+    <div style="display: flex; gap: 12px; justify-content: center;">
+        <a href="/Dashboard" class="btn btn-primary" style="padding: 10px 24px; font-weight: 600;">
+            Về Trang chủ
+        </a>
+        <a href="/Auth/Login" class="btn btn-secondary" style="padding: 10px 24px; font-weight: 600;">
+            Đăng nhập tài khoản khác
+        </a>
+    </div>
+</div>
+
+<style>
+    @@keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-8px); }
+    }
+</style>

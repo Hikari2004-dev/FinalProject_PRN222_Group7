@@ -1,19 +1,22 @@
 using FinalProject_PRN222_Group7.BLL.Services;
-using FinalProject_PRN222_Group7.DAL.Data;
+using FinalProject_PRN222_Group7.DAL.Entities;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace FinalProject_PRN222_Group7.Pages.Reports
 {
     public class IndexModel : PageModel
     {
         private readonly IReportService _reportService;
-        private readonly AppDbContext _context;
+        private readonly UserManager<AppUser> _userManager;
 
-        public IndexModel(IReportService reportService, AppDbContext context)
+        public IndexModel(IReportService reportService, UserManager<AppUser> userManager)
         {
             _reportService = reportService;
-            _context = context;
+            _userManager = userManager;
         }
 
         public DashboardStats Stats { get; set; } = null!;
@@ -26,27 +29,20 @@ namespace FinalProject_PRN222_Group7.Pages.Reports
 
         public async Task OnGetAsync()
         {
-            Stats = await _reportService.GetDashboardStatsAsync();
-            DailyStats = await _reportService.GetDailyQueryStatsAsync(30);
-            CourseStats = await _reportService.GetCourseQuizStatsAsync();
+            var user = await _userManager.GetUserAsync(User);
+            var isLecturer = User.IsInRole("Lecturer");
+            var isAdmin = User.IsInRole("Admin");
+            
+            string? reportUserId = (isLecturer || isAdmin) ? null : user?.Id;
+            string? reportLecturerId = isLecturer ? user?.Id : null;
 
-            // Score distribution
-            var attempts = await _context.QuizAttempts.Where(a => a.IsCompleted).ToListAsync();
-            ScoreDistribution = new[]
-            {
-                attempts.Count(a => a.Score >= 90),
-                attempts.Count(a => a.Score >= 70 && a.Score < 90),
-                attempts.Count(a => a.Score >= 50 && a.Score < 70),
-                attempts.Count(a => a.Score < 50)
-            };
+            Stats = await _reportService.GetDashboardStatsAsync(reportUserId, reportLecturerId);
+            DailyStats = await _reportService.GetDailyQueryStatsAsync(30, reportUserId, reportLecturerId);
+            CourseStats = await _reportService.GetCourseQuizStatsAsync(reportUserId, reportLecturerId);
 
-            // Revenue by package
-            RevenueByPackage = await _context.Payments
-                .Where(p => p.Status == DAL.Entities.PaymentStatus.Completed)
-                .Include(p => p.Package)
-                .GroupBy(p => p.Package.Name)
-                .Select(g => new PackageRevenue(g.Key, g.Count(), g.Sum(p => p.Amount)))
-                .ToListAsync();
+            ScoreDistribution = await _reportService.GetQuizScoreDistributionAsync(reportUserId, reportLecturerId);
+            var bllRev = await _reportService.GetRevenueByPackageAsync();
+            RevenueByPackage = bllRev.Select(r => new PackageRevenue(r.PackageName, r.Count, r.Total)).ToList();
         }
     }
 }

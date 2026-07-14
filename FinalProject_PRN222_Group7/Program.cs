@@ -51,6 +51,7 @@ namespace FinalProject_PRN222_Group7
             builder.Services.AddScoped<IReportService, ReportService>();
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddScoped<ISeedDataService, SeedDataService>();
+            builder.Services.AddScoped<IBenchmarkService, BenchmarkService>();
 
             // ── PayOS ─────────────────────────────────────────────────────
             var payOSClientId = builder.Configuration["PayOS:ClientId"] ?? "";
@@ -95,8 +96,8 @@ namespace FinalProject_PRN222_Group7
                 options.Conventions.AuthorizeFolder("/Documents");
                 options.Conventions.AuthorizeFolder("/Chat");
                 options.Conventions.AuthorizeFolder("/Quiz");
-                options.Conventions.AuthorizeFolder("/Reports", "StaffOnly");
-                options.Conventions.AuthorizeFolder("/Packages", "StudentOnly");
+                options.Conventions.AuthorizeFolder("/Reports");
+                options.Conventions.AuthorizeFolder("/Packages");
                 options.Conventions.AuthorizeFolder("/Payments", "StudentOnly");
                 options.Conventions.AuthorizeFolder("/Benchmark", "StaffOnly");
                 options.Conventions.AuthorizeFolder("/Courses");

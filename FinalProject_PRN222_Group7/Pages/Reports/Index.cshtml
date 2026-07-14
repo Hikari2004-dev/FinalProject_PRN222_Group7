@@ -7,7 +7,7 @@
 <div class="page-header">
     <div>
         <h1 class="page-title">Báo cáo & Thống kê</h1>
-        <p class="page-subtitle">Tổng quan hệ thống và phân tích dữ liệu học tập</p>
+        <p class="page-subtitle">@(User.IsInRole("Admin") || User.IsInRole("Lecturer") ? "Tổng quan hệ thống và phân tích dữ liệu học tập" : "Báo cáo và phân tích dữ liệu học tập cá nhân")</p>
     </div>
     <div style="display:flex;gap:8px">
         <select id="dateRange" class="form-control" style="width:140px" onchange="updateCharts(this.value)">
@@ -21,24 +21,53 @@
 <!-- Stat Cards -->
 <div class="stats-grid" style="margin-bottom:28px">
     <div class="stat-card accent">
-        <div class="stat-icon accent"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+        <div class="stat-icon accent">
+            @if (User.IsInRole("Admin"))
+            {
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            }
+            else if (User.IsInRole("Lecturer"))
+            {
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            }
+            else
+            {
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            }
+        </div>
         <div class="stat-value">@Model.Stats.TotalUsers</div>
-        <div class="stat-label">Tổng người dùng</div>
+        <div class="stat-label">
+            @if (User.IsInRole("Admin")) { <text>Tổng người dùng</text> }
+            else if (User.IsInRole("Lecturer")) { <text>Học sinh trong lớp</text> }
+            else { <text>Lượt hỏi AI</text> }
+        </div>
     </div>
     <div class="stat-card success">
         <div class="stat-icon success"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg></div>
         <div class="stat-value">@Model.Stats.TotalDocuments</div>
-        <div class="stat-label">Tài liệu / @Model.Stats.IndexedDocuments indexed</div>
+        <div class="stat-label">
+            @if (User.IsInRole("Admin")) { <text>Tài liệu / @Model.Stats.IndexedDocuments indexed</text> }
+            else if (User.IsInRole("Lecturer")) { <text>Tài liệu giảng dạy</text> }
+            else { <text>Tài liệu học tập</text> }
+        </div>
     </div>
     <div class="stat-card info">
         <div class="stat-icon info"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
         <div class="stat-value">@Model.Stats.TotalSessions</div>
-        <div class="stat-label">Phiên chat AI</div>
+        <div class="stat-label">
+            @if (User.IsInRole("Admin")) { <text>Phiên chat AI</text> }
+            else if (User.IsInRole("Lecturer")) { <text>Lượt chat môn học</text> }
+            else { <text>Phiên chat AI</text> }
+        </div>
     </div>
     <div class="stat-card warning">
         <div class="stat-icon warning"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01"/></svg></div>
         <div class="stat-value">@Model.Stats.TotalQuizAttempts</div>
-        <div class="stat-label">Lượt làm quiz</div>
+        <div class="stat-label">
+            @if (User.IsInRole("Admin")) { <text>Lượt làm quiz</text> }
+            else if (User.IsInRole("Lecturer")) { <text>Lượt nộp bài quiz</text> }
+            else { <text>Lượt làm quiz</text> }
+        </div>
     </div>
 </div>
 
@@ -70,7 +99,7 @@
     </div>
 </div>
 
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+<div style="display:grid;grid-template-columns: @(User.IsInRole("Admin") || User.IsInRole("Lecturer") ? "1fr 1fr" : "1fr");gap:20px">
 
     <!-- Course Quiz Bar Chart -->
     <div class="card">
@@ -84,28 +113,31 @@
         </div>
     </div>
 
-    <!-- Revenue + Payments Table -->
-    <div class="card">
-        <div class="card-header">
-            <span class="card-title">Doanh thu</span>
-            <span style="font-family:var(--font-mono);font-size:0.9rem;color:var(--success)">@Model.Stats.TotalRevenue.ToString("N0") đ</span>
+    @if (User.IsInRole("Admin") || User.IsInRole("Lecturer"))
+    {
+        <!-- Revenue + Payments Table -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Doanh thu</span>
+                <span style="font-family:var(--font-mono);font-size:0.9rem;color:var(--success)">@Model.Stats.TotalRevenue.ToString("N0") đ</span>
+            </div>
+            <div style="overflow:hidden">
+                <table>
+                    <thead><tr><th>Gói</th><th>Số GD</th><th>Doanh thu</th></tr></thead>
+                    <tbody>
+                        @foreach (var r in Model.RevenueByPackage)
+                        {
+                            <tr>
+                                <td class="text-primary">@r.PackageName</td>
+                                <td style="font-family:var(--font-mono)">@r.Count</td>
+                                <td style="font-family:var(--font-mono);color:var(--success)">@r.Total.ToString("N0") đ</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         </div>
-        <div style="overflow:hidden">
-            <table>
-                <thead><tr><th>Gói</th><th>Số GD</th><th>Doanh thu</th></tr></thead>
-                <tbody>
-                    @foreach (var r in Model.RevenueByPackage)
-                    {
-                        <tr>
-                            <td class="text-primary">@r.PackageName</td>
-                            <td style="font-family:var(--font-mono)">@r.Count</td>
-                            <td style="font-family:var(--font-mono);color:var(--success)">@r.Total.ToString("N0") đ</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    </div>
+    }
 </div>
 
 @section Scripts {

@@ -19,16 +19,14 @@ namespace FinalProject_PRN222_Group7.Pages.Admin
         private readonly ISubscriptionService _subscriptionService;
         private readonly ICreditWalletService _walletService;
         private readonly UserManager<AppUser> _userManager;
-        private readonly AppDbContext _context;
         private readonly IEmailService _emailService;
-
+ 
         public IndexModel(
             IReportService reportService,
             IPaymentService paymentService,
             ISubscriptionService subscriptionService,
             ICreditWalletService walletService,
             UserManager<AppUser> userManager,
-            AppDbContext context,
             IEmailService emailService)
         {
             _reportService = reportService;
@@ -36,25 +34,21 @@ namespace FinalProject_PRN222_Group7.Pages.Admin
             _subscriptionService = subscriptionService;
             _walletService = walletService;
             _userManager = userManager;
-            _context = context;
             _emailService = emailService;
         }
-
+ 
         public DashboardStats Stats { get; set; } = null!;
         public IEnumerable<AppUser> RecentUsers { get; set; } = new List<AppUser>();
         public Dictionary<string, string> UserRoles { get; set; } = new();
         public Dictionary<string, string> UserPackages { get; set; } = new();
         public IEnumerable<Payment> Payments { get; set; } = new List<Payment>();
-
+ 
         public async Task OnGetAsync()
         {
             Stats = await _reportService.GetDashboardStatsAsync();
             Payments = await _paymentService.GetAllPaymentsAsync();
-
-            RecentUsers = await _context.Users
-                .OrderByDescending(u => u.CreatedAt)
-                .Take(20)
-                .ToListAsync();
+ 
+            RecentUsers = await _reportService.GetRecentUsersAsync(20);
 
             foreach (var u in RecentUsers)
             {
