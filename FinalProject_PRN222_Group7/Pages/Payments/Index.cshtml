@@ -1,0 +1,72 @@
+@page
+@model FinalProject_PRN222_Group7.Pages.Payments.IndexModel
+@{
+    ViewData["Title"] = "Lịch sử thanh toán";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Lịch sử thanh toán</h1>
+        <p class="page-subtitle">Theo dõi các giao dịch mua gói dịch vụ</p>
+    </div>
+    @if (Model.IsAdmin)
+    {
+        <span class="badge badge-accent">Toàn bộ giao dịch</span>
+    }
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">Giao dịch</span>
+        <span class="badge badge-muted">@Model.Payments.Count giao dịch</span>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Payment Id</th>
+                    <th>Package Name</th>
+                    <th>Amount</th>
+                    <th>Payment Date</th>
+                    <th>Status</th>
+                    <th>Transaction Id</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var p in Model.Payments)
+                {
+                    <tr>
+                        <td style="font-family:var(--font-mono);font-size:0.78rem">@p.Id</td>
+                        <td class="text-primary">@p.Package?.Name</td>
+                        <td style="font-family:var(--font-mono);color:var(--success)">@p.Amount.ToString("N0") đ</td>
+                        <td style="font-size:0.8rem">@p.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                        <td>
+                            @{
+                                var statusClass = p.Status switch
+                                {
+                                    FinalProject_PRN222_Group7.DAL.Entities.PaymentStatus.Completed => "badge-success",
+                                    FinalProject_PRN222_Group7.DAL.Entities.PaymentStatus.Pending => "badge-warning",
+                                    FinalProject_PRN222_Group7.DAL.Entities.PaymentStatus.Failed => "badge-danger",
+                                    FinalProject_PRN222_Group7.DAL.Entities.PaymentStatus.Refunded => "badge-muted",
+                                    _ => "badge-muted"
+                                };
+                            }
+                            <span class="badge @statusClass">@p.Status</span>
+                        </td>
+                        <td style="font-family:var(--font-mono);font-size:0.78rem;color:var(--text-muted)">
+                            @(string.IsNullOrWhiteSpace(p.TransactionId) ? "-" : p.TransactionId)
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Payments.Any())
+                {
+                    <tr>
+                        <td colspan="6" style="text-align:center;color:var(--text-muted);padding:32px">
+                            You don't have any payment history.
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
