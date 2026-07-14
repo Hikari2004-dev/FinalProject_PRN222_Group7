@@ -1,0 +1,26 @@
+@page
+@model AccessDeniedModel
+@{
+    Layout = "_AuthLayout";
+    ViewData["Title"] = "Access Denied";
+}
+
+<div class="auth-page" style="align-items:center;justify-content:center">
+    <div class="auth-form-box slide-up" style="max-width:420px;width:100%;text-align:center">
+        <div style="width:56px;height:56px;background:var(--danger-muted);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius-xl);display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0110 0v4"/>
+                <circle cx="12" cy="16" r="1"/>
+            </svg>
+        </div>
+
+        <h1 class="auth-title" style="margin-bottom:8px">Access Denied</h1>
+        <p class="auth-subtitle" style="margin-bottom:24px">You do not have permission to access this page.</p>
+
+        <div style="display:flex;flex-direction:column;gap:10px">
+            <a href="/Dashboard/Index" class="btn btn-primary w-full btn-lg">Back to Dashboard</a>
+            <a href="/" class="btn btn-secondary w-full btn-lg">Back to Home</a>
+        </div>
+    </div>
+</div>
