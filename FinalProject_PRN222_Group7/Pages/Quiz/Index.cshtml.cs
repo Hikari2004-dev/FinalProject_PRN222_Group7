@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,9 +24,10 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
         private readonly ICourseService _courseService;
         private readonly IQuestionBankService _questionBankService;
         private readonly UserManager<AppUser> _userManager;
-        private readonly AppDbContext _context;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
+        private readonly IAiUsageGate _aiUsageGate;
+        private readonly ILogger<IndexModel> _logger;
 
         public IndexModel(
             IQuizService quizService,
@@ -33,18 +35,20 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
             ICourseService courseService,
             IQuestionBankService questionBankService,
             UserManager<AppUser> userManager,
-            AppDbContext context,
             IHttpClientFactory httpClientFactory,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            IAiUsageGate aiUsageGate,
+            ILogger<IndexModel> logger)
         {
             _quizService = quizService;
             _docService = docService;
             _courseService = courseService;
             _questionBankService = questionBankService;
             _userManager = userManager;
-            _context = context;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
+            _aiUsageGate = aiUsageGate;
+            _logger = logger;
         }
 
         public IEnumerable<DAL.Entities.Quiz> Quizzes { get; set; } = new List<DAL.Entities.Quiz>();
@@ -82,30 +86,42 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
                 allQuizzes.AddRange(quizzes);
             }
 
-            Quizzes = allQuizzes.OrderByDescending(q => q.CreatedAt);
+            var isLecturer = User.IsInRole("Lecturer");
+            var isAdmin = User.IsInRole("Admin");
+
+            if (isLecturer || isAdmin)
+            {
+                Quizzes = allQuizzes
+                    .Where(q => q.IsAiGenerated)
+                    .OrderByDescending(q => q.CreatedAt)
+                    .ToList();
+            }
+            else if (user != null)
+            {
+                var userQuizIds = await _quizService.GetUserAttemptedQuizIdsAsync(user.Id);
+
+                Quizzes = allQuizzes
+                    .Where(q => !q.IsAiGenerated && userQuizIds.Contains(q.Id))
+                    .OrderByDescending(q => q.CreatedAt)
+                    .ToList();
+            }
+            else
+            {
+                Quizzes = new List<DAL.Entities.Quiz>();
+            }
 
             if (user != null)
             {
                 CurrentUserId = user.Id;
-                UserAttempts = await _context.QuizAttempts
-                    .Where(a => a.UserId == user.Id && a.IsCompleted)
-                    .OrderByDescending(a => a.CompletedAt)
-                    .ToListAsync();
+                UserAttempts = await _quizService.GetUserCompletedAttemptsAsync(user.Id);
 
-                var isLecturer = User.IsInRole("Lecturer");
                 if (isLecturer)
                 {
-                    IndexedDocuments = await _context.Documents
-                        .Include(d => d.Course)
-                        .Where(d => d.Status == DocumentStatus.Indexed && d.Course.LecturerId == user.Id)
-                        .ToListAsync();
+                    IndexedDocuments = await _docService.GetIndexedDocumentsAsync(user.Id);
                 }
                 else
                 {
-                    IndexedDocuments = await _context.Documents
-                        .Include(d => d.Course)
-                        .Where(d => d.Status == DocumentStatus.Indexed)
-                        .ToListAsync();
+                    IndexedDocuments = await _docService.GetIndexedDocumentsAsync();
                 }
             }
         }
@@ -115,168 +131,174 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return new JsonResult(new { success = false, error = "Vui lòng đăng nhập lại." });
 
-            var isLecturer = User.IsInRole("Lecturer");
+            var roles = await _userManager.GetRolesAsync(user);
+            var isLecturer = roles.Contains("Lecturer") || roles.Contains("Admin");
             if (!isLecturer)
             {
                 return new JsonResult(new { success = false, error = "Bạn không có quyền thực hiện chức năng này." });
             }
 
-            var doc = await _context.Documents
-                .Include(d => d.Course)
-                .FirstOrDefaultAsync(d => d.Id == documentId);
+            var doc = await _docService.GetDocumentAsync(documentId);
 
             if (doc == null || doc.Course.LecturerId != user.Id)
                 return new JsonResult(new { success = false, error = "Tài liệu không tồn tại hoặc bạn không có quyền sở hữu môn học này." });
 
-            // 1. Lấy ra tất cả các câu hỏi hiện có trong Kho câu hỏi của môn học này
-            var existingQuestions = await _context.QuestionBankItems
-                .Where(q => q.CourseId == doc.CourseId)
+            var usageResult = await _aiUsageGate.ExecuteAsync(
+                user.Id,
+                roles,
+                "quiz.generate",
+                async () =>
+                {
+                    var generated = await GenerateQuestionsAsync(documentId, doc.CourseId, numQuestions);
+                    var questions = generated.Questions;
+
+                    var bankItems = questions.Select(q => new QuestionBankItem
+                    {
+                        Content = q.Content,
+                        OptionA = q.OptionA,
+                        OptionB = q.OptionB,
+                        OptionC = q.OptionC,
+                        OptionD = q.OptionD,
+                        CorrectAnswer = q.CorrectAnswer,
+                        Explanation = q.Explanation
+                    }).ToList();
+
+                    await _questionBankService.SaveQuestionsToBankAsync(
+                        doc.CourseId,
+                        doc.ChapterId,
+                        documentId,
+                        bankItems
+                    );
+
+                    var quiz = new DAL.Entities.Quiz
+                    {
+                        Title = title,
+                        CourseId = doc.CourseId,
+                        DocumentId = documentId,
+                        IsAiGenerated = true,
+                        TimeLimit = numQuestions * 2,
+                        TotalQuestions = questions.Count,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    await _quizService.CreateQuizAsync(quiz, questions);
+                    return new AiUsageExecutionPayload<bool>(true, generated.TokensUsed, generated.ModelName);
+                },
+                $"quiz:{documentId}:{numQuestions}:{Guid.NewGuid():N}");
+
+            if (!usageResult.Success)
+            {
+                _logger.LogWarning("AI quiz generation failed for document {DocumentId}: {Error}", documentId, usageResult.ErrorMessage);
+                return new JsonResult(new { success = false, error = usageResult.ErrorMessage ?? "Không thể tạo quiz bằng AI." });
+            }
+
+            return new JsonResult(new { success = true });
+        }
+
+        private async Task<QuizGenerationResult> GenerateQuestionsAsync(int documentId, int courseId, int numQuestions)
+        {
+            var existingQuestions = (await _questionBankService.GetQuestionsByCourseAsync(courseId))
                 .Select(q => q.Content)
                 .Distinct()
-                .ToListAsync();
+                .ToList();
 
-            // 2. Lấy nội dung các phân mảnh của tài liệu làm ngữ cảnh (context)
-            var chunks = await _context.DocumentChunks
-                .Where(c => c.DocumentId == documentId)
-                .OrderBy(c => c.ChunkIndex)
+            var chunks = (await _docService.GetChunksByDocumentIdAsync(documentId))
                 .Select(c => c.Content)
-                .ToListAsync();
+                .ToList();
             var contextText = string.Join("\n", chunks);
 
-            // 3. Cấu hình Gemini Key xoay vòng
             var geminiSection = _configuration.GetSection("Gemini");
             var apiKeys = geminiSection.GetSection("ApiKeys").Get<List<string>>() ?? new List<string>();
-            var model = geminiSection.GetValue<string>("Model") ?? "gemini-2.5-flash";
+            var model = geminiSection.GetValue<string>("Model") ?? "gemini-3.5-flash";
 
-            List<Question> questions = new List<Question>();
-            bool callSuccess = false;
-
-            if (apiKeys.Any())
+            if (!apiKeys.Any())
             {
-                var client = _httpClientFactory.CreateClient();
-                int retries = 0;
-                int maxRetries = apiKeys.Count;
-                string lastErrorMsg = "";
+                var mockQuestions = GenerateMockQuestions(numQuestions);
+                var mockTokens = Math.Max(1, contextText.Length / 4);
+                return new QuizGenerationResult(mockQuestions, mockTokens, "mock-fallback");
+            }
 
-                while (!callSuccess && retries < maxRetries)
+            var client = _httpClientFactory.CreateClient();
+            var retries = 0;
+            var maxRetries = apiKeys.Count;
+            var lastErrorMsg = string.Empty;
+
+            while (retries < maxRetries)
+            {
+                var apiKey = GetNextApiKey(apiKeys);
+                if (string.IsNullOrEmpty(apiKey) || apiKey.Contains("YOUR-"))
                 {
-                    var apiKey = GetNextApiKey(apiKeys);
-                    if (string.IsNullOrEmpty(apiKey) || apiKey.Contains("YOUR-"))
+                    retries++;
+                    continue;
+                }
+
+                var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
+
+                var prompt = $"Dựa vào nội dung tài liệu học tập sau đây:\n\n{contextText}\n\n" +
+                             $"Hãy tạo ra đúng {numQuestions} câu hỏi trắc nghiệm khách quan mới để kiểm tra kiến thức.\n" +
+                             $"Mỗi câu hỏi phải có 4 phương án lựa chọn A, B, C, D và có đáp án đúng kèm theo lời giải thích ngắn gọn.\n\n" +
+                             $"RÀNG BUỘC CỰC KỲ QUAN TRỌNG:\n" +
+                             $"- Bạn KHÔNG ĐƯỢC tạo các câu hỏi trùng lặp hoặc có nội dung tương tự với danh sách các câu hỏi đã có sau đây:\n" +
+                             $"{(existingQuestions.Any() ? string.Join("\n- ", existingQuestions.Take(150)) : "(Chưa có câu hỏi nào trong kho)")}\n\n" +
+                             $"- Định dạng kết quả trả về phải là một mảng JSON (JSON Array) của các đối tượng câu hỏi với các trường chính xác như sau:\n" +
+                             $"[\n" +
+                             $"  {{\n" +
+                             $"    \"content\": \"Nội dung câu hỏi mới\",\n" +
+                             $"    \"optionA\": \"Nội dung phương án A\",\n" +
+                             $"    \"optionB\": \"Nội dung phương án B\",\n" +
+                             $"    \"optionC\": \"Nội dung phương án C\",\n" +
+                             $"    \"optionD\": \"Nội dung phương án D\",\n" +
+                             $"    \"correctAnswer\": \"A\",\n" +
+                             $"    \"explanation\": \"Giải thích tại sao đúng\"\n" +
+                             $"  }}\n" +
+                             $"]\n\n" +
+                             $"Chỉ trả về chuỗi JSON thô hợp lệ, không bọc trong khối code ```json. Không chứa bất kỳ thông tin thừa nào ngoài JSON Array.";
+
+                var payload = new
+                {
+                    contents = new[]
                     {
+                        new { parts = new[] { new { text = prompt } } }
+                    },
+                    generationConfig = new
+                    {
+                        responseMimeType = "application/json"
+                    }
+                };
+
+                try
+                {
+                    var response = await client.PostAsJsonAsync(url, payload);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var geminiResult = await response.Content.ReadFromJsonAsync<GeminiGenerateResponse>();
+                        var jsonText = geminiResult?.Candidates?.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text;
+                        if (!string.IsNullOrEmpty(jsonText))
+                        {
+                            var questions = JsonSerializer.Deserialize<List<Question>>(jsonText, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<Question>();
+                            var tokensUsed = contextText.Length / 4 + jsonText.Length / 4;
+                            return new QuizGenerationResult(questions, Math.Max(tokensUsed, 1), model);
+                        }
+
+                        lastErrorMsg = "Gemini API trả về nội dung rỗng.";
                         retries++;
                         continue;
                     }
 
-                    var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
-
-                    var prompt = $"Dựa vào nội dung tài liệu học tập sau đây:\n\n{contextText}\n\n" +
-                                 $"Hãy tạo ra đúng {numQuestions} câu hỏi trắc nghiệm khách quan mới để kiểm tra kiến thức.\n" +
-                                 $"Mỗi câu hỏi phải có 4 phương án lựa chọn A, B, C, D và có đáp án đúng kèm theo lời giải thích ngắn gọn.\n\n" +
-                                 $"RÀNG BUỘC CỰC KỲ QUAN TRỌNG:\n" +
-                                 $"- Bạn KHÔNG ĐƯỢC tạo các câu hỏi trùng lặp hoặc có nội dung tương tự với danh sách các câu hỏi đã có sau đây:\n" +
-                                 $"{(existingQuestions.Any() ? string.Join("\n- ", existingQuestions.Take(150)) : "(Chưa có câu hỏi nào trong kho)")}\n\n" +
-                                 $"- Định dạng kết quả trả về phải là một mảng JSON (JSON Array) của các đối tượng câu hỏi với các trường chính xác như sau:\n" +
-                                 $"[\n" +
-                                 $"  {{\n" +
-                                 $"    \"content\": \"Nội dung câu hỏi mới\",\n" +
-                                 $"    \"optionA\": \"Nội dung phương án A\",\n" +
-                                 $"    \"optionB\": \"Nội dung phương án B\",\n" +
-                                 $"    \"optionC\": \"Nội dung phương án C\",\n" +
-                                 $"    \"optionD\": \"Nội dung phương án D\",\n" +
-                                 $"    \"correctAnswer\": \"A\",\n" +
-                                 $"    \"explanation\": \"Giải thích tại sao đúng\"\n" +
-                                 $"  }}\n" +
-                                 $"]\n\n" +
-                                 $"Chỉ trả về chuỗi JSON thô hợp lệ, không bọc trong khối code ```json. Không chứa bất kỳ thông tin thừa nào ngoài JSON Array.";
-
-                    var payload = new
-                    {
-                        contents = new[]
-                        {
-                            new { parts = new[] { new { text = prompt } } }
-                        },
-                        generationConfig = new
-                        {
-                            responseMimeType = "application/json"
-                        }
-                    };
-
-                    try
-                    {
-                        var response = await client.PostAsJsonAsync(url, payload);
-                        if (response.IsSuccessStatusCode)
-                        {
-                            var geminiResult = await response.Content.ReadFromJsonAsync<GeminiGenerateResponse>();
-                            var jsonText = geminiResult?.Candidates?.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text;
-                            if (!string.IsNullOrEmpty(jsonText))
-                            {
-                                questions = JsonSerializer.Deserialize<List<Question>>(jsonText, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<Question>();
-                                callSuccess = true;
-                            }
-                            else
-                            {
-                                lastErrorMsg = "Gemini API trả về nội dung rỗng.";
-                                retries++;
-                            }
-                        }
-                        else
-                        {
-                            var errBody = await response.Content.ReadAsStringAsync();
-                            lastErrorMsg = $"HTTP {response.StatusCode} - {errBody}";
-                            retries++;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        lastErrorMsg = ex.Message;
-                        retries++;
-                    }
+                    var errBody = await response.Content.ReadAsStringAsync();
+                    lastErrorMsg = $"HTTP {response.StatusCode} - {errBody}";
+                    retries++;
                 }
-
-                if (!callSuccess)
+                catch (Exception ex)
                 {
-                    questions = GenerateMockQuestions(numQuestions);
+                    lastErrorMsg = ex.Message;
+                    retries++;
                 }
             }
-            else
-            {
-                questions = GenerateMockQuestions(numQuestions);
-            }
 
-            // Save to Question Bank (filtering duplicates inside BLL)
-            var bankItems = questions.Select(q => new QuestionBankItem
-            {
-                Content = q.Content,
-                OptionA = q.OptionA,
-                OptionB = q.OptionB,
-                OptionC = q.OptionC,
-                OptionD = q.OptionD,
-                CorrectAnswer = q.CorrectAnswer,
-                Explanation = q.Explanation
-            }).ToList();
-
-            await _questionBankService.SaveQuestionsToBankAsync(
-                doc.CourseId,
-                doc.ChapterId,
-                documentId,
-                bankItems
-            );
-
-            // Save to Quiz
-            var quiz = new DAL.Entities.Quiz
-            {
-                Title = title,
-                CourseId = doc.CourseId,
-                DocumentId = documentId,
-                IsAiGenerated = true,
-                TimeLimit = numQuestions * 2,
-                TotalQuestions = questions.Count,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            await _quizService.CreateQuizAsync(quiz, questions);
-
-            return new JsonResult(new { success = true });
+            var fallbackQuestions = GenerateMockQuestions(numQuestions);
+            var fallbackTokens = Math.Max(1, contextText.Length / 4);
+            return new QuizGenerationResult(fallbackQuestions, fallbackTokens, "mock-fallback");
         }
 
         private static List<Question> GenerateMockQuestions(int count)
@@ -297,6 +319,8 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
             }
             return questions;
         }
+
+        private record QuizGenerationResult(List<Question> Questions, int TokensUsed, string? ModelName);
 
         private class GeminiGenerateResponse
         {
@@ -402,9 +426,8 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
             // Normalize: null/empty chapterIds = all chapters
             var hasChapterFilter = chapterIds != null && chapterIds.Count > 0;
 
-            var count = await _context.QuestionBankItems.CountAsync(q =>
-                q.CourseId == courseId &&
-                (!hasChapterFilter || chapterIds!.Contains(q.ChapterId ?? -1)));
+            var bankQuestions = await _questionBankService.GetQuestionsByCourseAsync(courseId);
+            var count = bankQuestions.Count(q => !hasChapterFilter || chapterIds!.Contains(q.ChapterId ?? -1));
 
             if (count == 0)
             {

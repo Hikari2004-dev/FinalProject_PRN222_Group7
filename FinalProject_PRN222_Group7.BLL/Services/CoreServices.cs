@@ -15,6 +15,9 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         Task DeleteAsync(int id);
         Task<int> GetTotalCountAsync();
         Task ProcessLocalDocumentAsync(int docId, string filePath);
+        Task<IEnumerable<DocumentChunk>> GetChunksByDocumentIdAsync(int docId);
+        Task<IEnumerable<Document>> GetIndexedDocumentsAsync(string? lecturerId = null);
+        Task<IEnumerable<DocumentChunk>> GetIndexedChunksByCourseAsync(int courseId);
     }
 
     public class DocumentService : IDocumentService
@@ -262,6 +265,32 @@ namespace FinalProject_PRN222_Group7.BLL.Services
             }
             return chunks;
         }
+
+        public async Task<IEnumerable<DocumentChunk>> GetChunksByDocumentIdAsync(int docId)
+            => await _context.DocumentChunks
+                .Where(c => c.DocumentId == docId)
+                .OrderBy(c => c.ChunkIndex)
+                .ToListAsync();
+
+        public async Task<IEnumerable<Document>> GetIndexedDocumentsAsync(string? lecturerId = null)
+        {
+            var query = _context.Documents
+                .Include(d => d.Course)
+                .Where(d => d.Status == DocumentStatus.Indexed);
+
+            if (lecturerId != null)
+            {
+                query = query.Where(d => d.Course.LecturerId == lecturerId);
+            }
+
+            return await query.ToListAsync();
+        }
+
+        public async Task<IEnumerable<DocumentChunk>> GetIndexedChunksByCourseAsync(int courseId)
+            => await _context.DocumentChunks
+                .Include(c => c.Document)
+                .Where(c => c.Document.CourseId == courseId && c.Document.Status == DocumentStatus.Indexed)
+                .ToListAsync();
     }
 
     // ============ COURSE SERVICE ============
@@ -349,17 +378,26 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         Task<bool> CheckQueryLimitAsync(string userId);
         Task DecrementQueryLimitAsync(string userId);
         Task DeleteSessionAsync(int id);
+        Task<IEnumerable<ChatMessage>> GetRecentMessagesAsync(int sessionId, int count = 6);
     }
 
     public class ChatService : IChatService
     {
         private readonly IChatRepository _repo;
         private readonly AppDbContext _context;
+        private readonly ISubscriptionService _subscriptionService;
+        private readonly ICreditWalletService _walletService;
 
-        public ChatService(IChatRepository repo, AppDbContext context)
+        public ChatService(
+            IChatRepository repo,
+            AppDbContext context,
+            ISubscriptionService subscriptionService,
+            ICreditWalletService walletService)
         {
             _repo = repo;
             _context = context;
+            _subscriptionService = subscriptionService;
+            _walletService = walletService;
         }
 
         public async Task<IEnumerable<ChatSession>> GetUserSessionsAsync(string userId)
@@ -404,25 +442,22 @@ namespace FinalProject_PRN222_Group7.BLL.Services
 
         public async Task<bool> CheckQueryLimitAsync(string userId)
         {
-            var userPkg = await _context.UserPackages
-                .Include(up => up.Package)
-                .FirstOrDefaultAsync(up => up.UserId == userId && up.IsActive);
-
-            if (userPkg == null) return false;
-            if (userPkg.Package.MonthlyAiQueries == -1) return true; // unlimited
-            return userPkg.RemainingQueries > 0;
+            await _subscriptionService.EnsureCompatibilityAsync(userId);
+            return await _walletService.HasCreditsAsync(userId, 1, ["Student"]);
         }
 
         public async Task DecrementQueryLimitAsync(string userId)
         {
-            var userPkg = await _context.UserPackages
-                .FirstOrDefaultAsync(up => up.UserId == userId && up.IsActive);
-
-            if (userPkg != null && userPkg.RemainingQueries > 0)
+            await _subscriptionService.EnsureCompatibilityAsync(userId);
+            var legacyPackage = await _subscriptionService.GetLegacyCompatiblePackageAsync(userId);
+            if (legacyPackage == null)
             {
-                userPkg.RemainingQueries--;
-                await _context.SaveChangesAsync();
+                return;
             }
+
+            var wallet = await _walletService.EnsureWalletAsync(userId, ["Student"]);
+            legacyPackage.RemainingQueries = wallet.SubscriptionCreditBalance + wallet.PurchasedCreditBalance;
+            await _context.SaveChangesAsync();
         }
 
         public async Task DeleteSessionAsync(int id)
@@ -437,6 +472,13 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                 await _context.SaveChangesAsync();
             }
         }
+
+        public async Task<IEnumerable<ChatMessage>> GetRecentMessagesAsync(int sessionId, int count = 6)
+            => await _context.ChatMessages
+                .Where(m => m.ChatSessionId == sessionId)
+                .OrderByDescending(m => m.Id)
+                .Take(count)
+                .ToListAsync();
     }
 
     // ============ CHAPTER SERVICE ============

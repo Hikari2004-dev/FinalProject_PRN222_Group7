@@ -99,6 +99,8 @@ namespace FinalProject_PRN222_Group7.DAL.Repositories
             => await _context.Payments
                 .Where(p => p.UserId == userId)
                 .Include(p => p.Package)
+                .Include(p => p.CreditPackage)
+                .Include(p => p.UserSubscription)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
 
@@ -106,6 +108,8 @@ namespace FinalProject_PRN222_Group7.DAL.Repositories
             => await _context.Payments
                 .Include(p => p.User)
                 .Include(p => p.Package)
+                .Include(p => p.CreditPackage)
+                .Include(p => p.UserSubscription)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
     }

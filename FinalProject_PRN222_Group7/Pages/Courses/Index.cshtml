@@ -247,7 +247,6 @@
     </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
 <script>
     var coursesData = {
         @foreach (var c in Model.Courses)
@@ -551,16 +550,7 @@
             }
         }
 
-        // Tích hợp SignalR Real-time update
-        const connection = new signalR.HubConnectionBuilder()
-            .withUrl("/lmsHub")
-            .build();
 
-        connection.on("ReceiveCourseUpdate", () => {
-            window.location.reload();
-        });
-
-        connection.start().catch(err => console.error(err.toString()));
 
         // ─── Confirm & Loading cho các form thao tác ───────────────────────────
 

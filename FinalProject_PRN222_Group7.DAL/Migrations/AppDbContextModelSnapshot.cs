@@ -17,10 +17,144 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.0-preview.5.25277.114")
+                .HasAnnotation("ProductVersion", "10.0.0")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.AiActionCost", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ActionCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ActionName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("CreditCost")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActionCode")
+                        .IsUnique();
+
+                    b.ToTable("AiActionCosts");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            ActionCode = "chat.ask",
+                            ActionName = "Hỏi đáp AI",
+                            CreditCost = 1,
+                            Description = "Mỗi lượt hỏi chat AI tiêu tốn 1 credit.",
+                            DisplayOrder = 1,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            Id = 2,
+                            ActionCode = "quiz.generate",
+                            ActionName = "Sinh quiz bằng AI",
+                            CreditCost = 5,
+                            Description = "Sinh một bài quiz từ tài liệu tiêu tốn 5 credit.",
+                            DisplayOrder = 2,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            Id = 3,
+                            ActionCode = "flashcard.generate",
+                            ActionName = "Sinh flashcard",
+                            CreditCost = 3,
+                            Description = "Sinh flashcard từ tài liệu tiêu tốn 3 credit.",
+                            DisplayOrder = 3,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            Id = 4,
+                            ActionCode = "summary.generate",
+                            ActionName = "Tóm tắt tài liệu",
+                            CreditCost = 2,
+                            Description = "Tóm tắt tài liệu tiêu tốn 2 credit.",
+                            DisplayOrder = 4,
+                            IsActive = true
+                        });
+                });
+
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.AiUsageLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ActionCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreditTransactionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CreditsCharged")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ModelName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RequestId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TokensUsed")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreditTransactionId");
+
+                    b.HasIndex("RequestId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AiUsageLogs");
+                });
 
             modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.AppUser", b =>
                 {
@@ -237,9 +371,6 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("AppUserId")
-                        .HasColumnType("nvarchar(450)");
-
                     b.Property<int?>("CourseId")
                         .HasColumnType("int");
 
@@ -248,6 +379,10 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
+
+                    b.Property<string>("LegacyAppUserId")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("AppUserId");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -262,9 +397,9 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AppUserId");
-
                     b.HasIndex("CourseId");
+
+                    b.HasIndex("LegacyAppUserId");
 
                     b.HasIndex("UserId");
 
@@ -278,9 +413,6 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AppUserId")
-                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("Code")
                         .IsRequired()
@@ -299,17 +431,203 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("LegacyAppUserId")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("AppUserId");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AppUserId");
-
                     b.HasIndex("LecturerId");
 
+                    b.HasIndex("LegacyAppUserId");
+
                     b.ToTable("Courses");
+                });
+
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.CreditPackage", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Credits")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsFeatured")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("CreditPackages");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Code = "credit-500",
+                            CreatedAt = new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Credits = 500,
+                            Description = "Bổ sung nhanh cho các tác vụ học tập hằng ngày.",
+                            DisplayOrder = 1,
+                            IsActive = true,
+                            IsFeatured = false,
+                            Name = "500 AI Credit",
+                            Price = 29000m,
+                            UpdatedAt = new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Code = "credit-1500",
+                            CreatedAt = new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Credits = 1500,
+                            Description = "Gói tiết kiệm cho kỳ học có cường độ sử dụng AI cao.",
+                            DisplayOrder = 2,
+                            IsActive = true,
+                            IsFeatured = true,
+                            Name = "1.500 AI Credit",
+                            Price = 79000m,
+                            UpdatedAt = new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Code = "credit-4000",
+                            CreatedAt = new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Credits = 4000,
+                            Description = "Phù hợp khi cần học tăng tốc hoặc ôn thi dài hạn.",
+                            DisplayOrder = 3,
+                            IsActive = true,
+                            IsFeatured = false,
+                            Name = "4.000 AI Credit",
+                            Price = 179000m,
+                            UpdatedAt = new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Utc)
+                        });
+                });
+
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.CreditTransaction", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BalanceAfter")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreditWalletId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Credits")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ReferenceCode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RequestId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("SourceType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TransactionType")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreditWalletId");
+
+                    b.HasIndex("RequestId");
+
+                    b.ToTable("CreditTransactions");
+                });
+
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.CreditWallet", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("InternalCreditBalance")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PurchasedCreditBalance")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("SubscriptionCreditBalance")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("CreditWallets");
                 });
 
             modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.Document", b =>
@@ -426,8 +744,24 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("BillingPeriod")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DurationInDays")
+                        .HasColumnType("int");
 
                     b.Property<bool>("HasBenchmark")
                         .HasColumnType("bit");
@@ -438,10 +772,19 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsFeatured")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsFree")
+                        .HasColumnType("bit");
+
                     b.Property<int>("MaxDocuments")
                         .HasColumnType("int");
 
                     b.Property<int>("MonthlyAiQueries")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MonthlyCredit")
                         .HasColumnType("int");
 
                     b.Property<string>("Name")
@@ -455,7 +798,13 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
                     b.Property<int>("Tier")
                         .HasColumnType("int");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
 
                     b.ToTable("Packages");
 
@@ -463,41 +812,294 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
                         new
                         {
                             Id = 1,
-                            Description = "Gói miễn phí cho sinh viên",
+                            BillingPeriod = 1,
+                            Code = "legacy-basic",
+                            CreatedAt = new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Gói cũ để giữ tương thích dữ liệu hiện tại.",
+                            DisplayOrder = 90,
+                            DurationInDays = 30,
                             HasBenchmark = false,
                             HasQuizGeneration = false,
-                            IsActive = true,
+                            IsActive = false,
+                            IsFeatured = false,
+                            IsFree = true,
                             MaxDocuments = 5,
                             MonthlyAiQueries = 50,
-                            Name = "Basic",
+                            MonthlyCredit = 50,
+                            Name = "Basic (Legacy)",
                             Price = 0m,
-                            Tier = 0
+                            Tier = 0,
+                            UpdatedAt = new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
                         new
                         {
                             Id = 2,
-                            Description = "Gói nâng cao cho giảng viên",
+                            BillingPeriod = 1,
+                            Code = "legacy-pro",
+                            CreatedAt = new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Gói cũ để giữ tương thích dữ liệu hiện tại.",
+                            DisplayOrder = 91,
+                            DurationInDays = 30,
                             HasBenchmark = false,
                             HasQuizGeneration = true,
-                            IsActive = true,
+                            IsActive = false,
+                            IsFeatured = false,
+                            IsFree = false,
                             MaxDocuments = 50,
                             MonthlyAiQueries = 500,
-                            Name = "Pro",
+                            MonthlyCredit = 500,
+                            Name = "Pro (Legacy)",
                             Price = 99000m,
-                            Tier = 1
+                            Tier = 1,
+                            UpdatedAt = new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
                         new
                         {
                             Id = 3,
-                            Description = "Không giới hạn - full features",
+                            BillingPeriod = 1,
+                            Code = "legacy-ultra",
+                            CreatedAt = new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Gói cũ để giữ tương thích dữ liệu hiện tại.",
+                            DisplayOrder = 92,
+                            DurationInDays = 30,
+                            HasBenchmark = true,
+                            HasQuizGeneration = true,
+                            IsActive = false,
+                            IsFeatured = false,
+                            IsFree = false,
+                            MaxDocuments = -1,
+                            MonthlyAiQueries = -1,
+                            MonthlyCredit = 2000,
+                            Name = "Ultra (Legacy)",
+                            Price = 299000m,
+                            Tier = 2,
+                            UpdatedAt = new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 10,
+                            BillingPeriod = 1,
+                            Code = "free",
+                            CreatedAt = new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Gói miễn phí cho sinh viên với credit cơ bản hằng tháng.",
+                            DisplayOrder = 1,
+                            DurationInDays = 30,
+                            HasBenchmark = false,
+                            HasQuizGeneration = false,
+                            IsActive = true,
+                            IsFeatured = false,
+                            IsFree = true,
+                            MaxDocuments = 0,
+                            MonthlyAiQueries = 50,
+                            MonthlyCredit = 50,
+                            Name = "Free",
+                            Price = 0m,
+                            Tier = 3,
+                            UpdatedAt = new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 11,
+                            BillingPeriod = 1,
+                            Code = "basic",
+                            CreatedAt = new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Phù hợp cho sinh viên cần dùng AI thường xuyên trong một môn học.",
+                            DisplayOrder = 2,
+                            DurationInDays = 30,
+                            HasBenchmark = false,
+                            HasQuizGeneration = true,
+                            IsActive = true,
+                            IsFeatured = false,
+                            IsFree = false,
+                            MaxDocuments = 0,
+                            MonthlyAiQueries = 250,
+                            MonthlyCredit = 250,
+                            Name = "Basic",
+                            Price = 49000m,
+                            Tier = 0,
+                            UpdatedAt = new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 12,
+                            BillingPeriod = 1,
+                            Code = "plus",
+                            CreatedAt = new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Gói phổ biến nhất cho sinh viên dùng chat, quiz và phân tích học tập nâng cao.",
+                            DisplayOrder = 3,
+                            DurationInDays = 30,
+                            HasBenchmark = false,
+                            HasQuizGeneration = true,
+                            IsActive = true,
+                            IsFeatured = true,
+                            IsFree = false,
+                            MaxDocuments = 0,
+                            MonthlyAiQueries = 800,
+                            MonthlyCredit = 800,
+                            Name = "Plus",
+                            Price = 99000m,
+                            Tier = 4,
+                            UpdatedAt = new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 13,
+                            BillingPeriod = 1,
+                            Code = "research",
+                            CreatedAt = new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Gói cao nhất cho nhu cầu nghiên cứu, tổng hợp và phân tích AI chuyên sâu.",
+                            DisplayOrder = 4,
+                            DurationInDays = 30,
                             HasBenchmark = true,
                             HasQuizGeneration = true,
                             IsActive = true,
-                            MaxDocuments = -1,
-                            MonthlyAiQueries = -1,
-                            Name = "Ultra",
-                            Price = 299000m,
-                            Tier = 2
+                            IsFeatured = false,
+                            IsFree = false,
+                            MaxDocuments = 0,
+                            MonthlyAiQueries = 2000,
+                            MonthlyCredit = 2000,
+                            Name = "Research",
+                            Price = 199000m,
+                            Tier = 5,
+                            UpdatedAt = new DateTime(2026, 7, 14, 0, 0, 0, 0, DateTimeKind.Utc)
+                        });
+                });
+
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.PackageFeature", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FeatureCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("FeatureName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FeatureValue")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("PackageId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PackageId", "FeatureCode")
+                        .IsUnique();
+
+                    b.ToTable("PackageFeatures");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            DisplayOrder = 1,
+                            FeatureCode = "ai.chat.single_kb",
+                            FeatureName = "Chat AI theo môn học",
+                            FeatureValue = "basic",
+                            IsEnabled = true,
+                            PackageId = 10
+                        },
+                        new
+                        {
+                            Id = 2,
+                            DisplayOrder = 2,
+                            FeatureCode = "ai.quiz.basic",
+                            FeatureName = "Làm quiz AI",
+                            FeatureValue = "false",
+                            IsEnabled = false,
+                            PackageId = 10
+                        },
+                        new
+                        {
+                            Id = 3,
+                            DisplayOrder = 1,
+                            FeatureCode = "ai.chat.single_kb",
+                            FeatureName = "Chat AI theo môn học",
+                            FeatureValue = "standard",
+                            IsEnabled = true,
+                            PackageId = 11
+                        },
+                        new
+                        {
+                            Id = 4,
+                            DisplayOrder = 2,
+                            FeatureCode = "ai.quiz.basic",
+                            FeatureName = "Sinh quiz cơ bản",
+                            FeatureValue = "true",
+                            IsEnabled = true,
+                            PackageId = 11
+                        },
+                        new
+                        {
+                            Id = 5,
+                            DisplayOrder = 1,
+                            FeatureCode = "ai.chat.multi_doc",
+                            FeatureName = "Chat AI đa tài liệu",
+                            FeatureValue = "true",
+                            IsEnabled = true,
+                            PackageId = 12
+                        },
+                        new
+                        {
+                            Id = 6,
+                            DisplayOrder = 2,
+                            FeatureCode = "ai.quiz.basic",
+                            FeatureName = "Sinh quiz AI",
+                            FeatureValue = "true",
+                            IsEnabled = true,
+                            PackageId = 12
+                        },
+                        new
+                        {
+                            Id = 7,
+                            DisplayOrder = 3,
+                            FeatureCode = "ai.flashcard.basic",
+                            FeatureName = "Flashcard AI",
+                            FeatureValue = "true",
+                            IsEnabled = true,
+                            PackageId = 12
+                        },
+                        new
+                        {
+                            Id = 8,
+                            DisplayOrder = 1,
+                            FeatureCode = "ai.deep_analysis",
+                            FeatureName = "Phân tích AI chuyên sâu",
+                            FeatureValue = "true",
+                            IsEnabled = true,
+                            PackageId = 13
+                        },
+                        new
+                        {
+                            Id = 9,
+                            DisplayOrder = 2,
+                            FeatureCode = "benchmark.advanced",
+                            FeatureName = "Benchmark nâng cao",
+                            FeatureValue = "true",
+                            IsEnabled = true,
+                            PackageId = 13
+                        },
+                        new
+                        {
+                            Id = 10,
+                            DisplayOrder = 3,
+                            FeatureCode = "priority.processing",
+                            FeatureName = "Ưu tiên xử lý",
+                            FeatureValue = "high",
+                            IsEnabled = true,
+                            PackageId = 13
                         });
                 });
 
@@ -513,23 +1115,42 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("AppUserId")
-                        .HasColumnType("nvarchar(450)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("CreditPackageId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ExpiredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("GatewayOrderCode")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<string>("InvoiceNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("LegacyAppUserId")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("AppUserId");
+
+                    b.Property<string>("MetadataJson")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("PackageId")
+                    b.Property<int?>("PackageId")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("PaidAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int>("PaymentMethod")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PurchaseType")
+                        .HasColumnType("int");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -537,19 +1158,83 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
                     b.Property<string>("TransactionId")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("UserId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<int?>("UserSubscriptionId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("AppUserId");
+                    b.HasIndex("CreditPackageId");
+
+                    b.HasIndex("GatewayOrderCode")
+                        .IsUnique()
+                        .HasFilter("[GatewayOrderCode] IS NOT NULL");
+
+                    b.HasIndex("LegacyAppUserId");
 
                     b.HasIndex("PackageId");
 
                     b.HasIndex("UserId");
 
+                    b.HasIndex("UserSubscriptionId");
+
                     b.ToTable("Payments");
+                });
+
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.PaymentCallbackLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("GatewayOrderCode")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("GatewayProvider")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<bool>("IsProcessed")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSignatureValid")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("PaymentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RawPayload")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Signature")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaymentId");
+
+                    b.HasIndex("GatewayProvider", "GatewayOrderCode", "Signature");
+
+                    b.ToTable("PaymentCallbackLogs");
                 });
 
             modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.Question", b =>
@@ -669,9 +1354,6 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
                     b.Property<int>("CourseId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("CourseId1")
-                        .HasColumnType("int");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -683,6 +1365,10 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
 
                     b.Property<bool>("IsAiGenerated")
                         .HasColumnType("bit");
+
+                    b.Property<int?>("LegacyCourseId")
+                        .HasColumnType("int")
+                        .HasColumnName("CourseId1");
 
                     b.Property<int>("TimeLimit")
                         .HasColumnType("int");
@@ -698,9 +1384,9 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
 
                     b.HasIndex("CourseId");
 
-                    b.HasIndex("CourseId1");
-
                     b.HasIndex("DocumentId");
+
+                    b.HasIndex("LegacyCourseId");
 
                     b.ToTable("Quizzes");
                 });
@@ -716,9 +1402,6 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
                     b.Property<string>("AnswersJson")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("AppUserId")
-                        .HasColumnType("nvarchar(450)");
-
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("datetime2");
 
@@ -727,6 +1410,10 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
 
                     b.Property<bool>("IsCompleted")
                         .HasColumnType("bit");
+
+                    b.Property<string>("LegacyAppUserId")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("AppUserId");
 
                     b.Property<int>("QuizId")
                         .HasColumnType("int");
@@ -746,7 +1433,7 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AppUserId");
+                    b.HasIndex("LegacyAppUserId");
 
                     b.HasIndex("QuizId");
 
@@ -825,6 +1512,56 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("UserPackages");
+                });
+
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.UserSubscription", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AutoRenew")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("CancelAtPeriodEnd")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("NextPackageId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PackageId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NextPackageId");
+
+                    b.HasIndex("PackageId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserSubscriptions");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -960,6 +1697,24 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.AiUsageLog", b =>
+                {
+                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.CreditTransaction", "CreditTransaction")
+                        .WithMany()
+                        .HasForeignKey("CreditTransactionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.AppUser", "User")
+                        .WithMany("AiUsageLogs")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreditTransaction");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.AppUser", b =>
                 {
                     b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.UserPackage", "UserPackage")
@@ -993,17 +1748,18 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
 
             modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.ChatSession", b =>
                 {
-                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.AppUser", null)
-                        .WithMany("ChatSessions")
-                        .HasForeignKey("AppUserId");
-
                     b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.Course", "Course")
                         .WithMany()
                         .HasForeignKey("CourseId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.AppUser", "User")
+                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.AppUser", null)
                         .WithMany()
+                        .HasForeignKey("LegacyAppUserId")
+                        .HasConstraintName("FK_ChatSessions_AspNetUsers_AppUserId");
+
+                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.AppUser", "User")
+                        .WithMany("ChatSessions")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1015,17 +1771,40 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
 
             modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.Course", b =>
                 {
-                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.AppUser", null)
-                        .WithMany("Courses")
-                        .HasForeignKey("AppUserId");
-
                     b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.AppUser", "Lecturer")
-                        .WithMany()
+                        .WithMany("Courses")
                         .HasForeignKey("LecturerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("LegacyAppUserId")
+                        .HasConstraintName("FK_Courses_AspNetUsers_AppUserId");
+
                     b.Navigation("Lecturer");
+                });
+
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.CreditTransaction", b =>
+                {
+                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.CreditWallet", "CreditWallet")
+                        .WithMany("Transactions")
+                        .HasForeignKey("CreditWalletId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CreditWallet");
+                });
+
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.CreditWallet", b =>
+                {
+                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.AppUser", "User")
+                        .WithOne("CreditWallet")
+                        .HasForeignKey("FinalProject_PRN222_Group7.DAL.Entities.CreditWallet", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.Document", b =>
@@ -1065,27 +1844,62 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
                     b.Navigation("Document");
                 });
 
-            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.Payment", b =>
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.PackageFeature", b =>
                 {
-                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.AppUser", null)
-                        .WithMany("Payments")
-                        .HasForeignKey("AppUserId");
-
                     b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.Package", "Package")
-                        .WithMany()
+                        .WithMany("Features")
                         .HasForeignKey("PackageId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.AppUser", "User")
+                    b.Navigation("Package");
+                });
+
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.Payment", b =>
+                {
+                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.CreditPackage", "CreditPackage")
+                        .WithMany("Payments")
+                        .HasForeignKey("CreditPackageId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.AppUser", null)
                         .WithMany()
+                        .HasForeignKey("LegacyAppUserId")
+                        .HasConstraintName("FK_Payments_AspNetUsers_AppUserId");
+
+                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.Package", "Package")
+                        .WithMany("Payments")
+                        .HasForeignKey("PackageId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.AppUser", "User")
+                        .WithMany("Payments")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.UserSubscription", "UserSubscription")
+                        .WithMany("Payments")
+                        .HasForeignKey("UserSubscriptionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CreditPackage");
+
                     b.Navigation("Package");
 
                     b.Navigation("User");
+
+                    b.Navigation("UserSubscription");
+                });
+
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.PaymentCallbackLog", b =>
+                {
+                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.Payment", "Payment")
+                        .WithMany("CallbackLogs")
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Payment");
                 });
 
             modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.Question", b =>
@@ -1127,19 +1941,20 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
             modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.Quiz", b =>
                 {
                     b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.Course", "Course")
-                        .WithMany()
+                        .WithMany("Quizzes")
                         .HasForeignKey("CourseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.Course", null)
-                        .WithMany("Quizzes")
-                        .HasForeignKey("CourseId1");
 
                     b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.Document", "Document")
                         .WithMany()
                         .HasForeignKey("DocumentId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.Course", null)
+                        .WithMany()
+                        .HasForeignKey("LegacyCourseId")
+                        .HasConstraintName("FK_Quizzes_Courses_CourseId1");
 
                     b.Navigation("Course");
 
@@ -1149,8 +1964,9 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
             modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.QuizAttempt", b =>
                 {
                     b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.AppUser", null)
-                        .WithMany("QuizAttempts")
-                        .HasForeignKey("AppUserId");
+                        .WithMany()
+                        .HasForeignKey("LegacyAppUserId")
+                        .HasConstraintName("FK_QuizAttempts_AspNetUsers_AppUserId");
 
                     b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.Quiz", "Quiz")
                         .WithMany("Attempts")
@@ -1159,7 +1975,7 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
                         .IsRequired();
 
                     b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.AppUser", "User")
-                        .WithMany()
+                        .WithMany("QuizAttempts")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -1172,7 +1988,7 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
             modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.UserPackage", b =>
                 {
                     b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.Package", "Package")
-                        .WithMany()
+                        .WithMany("UserPackages")
                         .HasForeignKey("PackageId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -1182,6 +1998,32 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Package");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.UserSubscription", b =>
+                {
+                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.Package", "NextPackage")
+                        .WithMany()
+                        .HasForeignKey("NextPackageId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.Package", "Package")
+                        .WithMany("Subscriptions")
+                        .HasForeignKey("PackageId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinalProject_PRN222_Group7.DAL.Entities.AppUser", "User")
+                        .WithMany("Subscriptions")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("NextPackage");
 
                     b.Navigation("Package");
 
@@ -1241,13 +2083,19 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
 
             modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.AppUser", b =>
                 {
+                    b.Navigation("AiUsageLogs");
+
                     b.Navigation("ChatSessions");
 
                     b.Navigation("Courses");
 
+                    b.Navigation("CreditWallet");
+
                     b.Navigation("Payments");
 
                     b.Navigation("QuizAttempts");
+
+                    b.Navigation("Subscriptions");
                 });
 
             modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.Chapter", b =>
@@ -1271,9 +2119,35 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
                     b.Navigation("Quizzes");
                 });
 
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.CreditPackage", b =>
+                {
+                    b.Navigation("Payments");
+                });
+
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.CreditWallet", b =>
+                {
+                    b.Navigation("Transactions");
+                });
+
             modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.Document", b =>
                 {
                     b.Navigation("Chunks");
+                });
+
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.Package", b =>
+                {
+                    b.Navigation("Features");
+
+                    b.Navigation("Payments");
+
+                    b.Navigation("Subscriptions");
+
+                    b.Navigation("UserPackages");
+                });
+
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.Payment", b =>
+                {
+                    b.Navigation("CallbackLogs");
                 });
 
             modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.Quiz", b =>
@@ -1281,6 +2155,11 @@ namespace FinalProject_PRN222_Group7.DAL.Migrations
                     b.Navigation("Attempts");
 
                     b.Navigation("Questions");
+                });
+
+            modelBuilder.Entity("FinalProject_PRN222_Group7.DAL.Entities.UserSubscription", b =>
+                {
+                    b.Navigation("Payments");
                 });
 #pragma warning restore 612, 618
         }
