@@ -80,7 +80,7 @@
             </div>
             <div>
                 <div style="font-size:0.75rem;color:var(--text-muted)">Ngày tải lên</div>
-                <div style="font-size:0.875rem;font-weight:600">@Model.Doc.UploadedAt.ToString("dd/MM/yyyy HH:mm")</div>
+                <div style="font-size:0.875rem;font-weight:600">@Model.Doc.UploadedAt.AddHours(7).ToString("dd/MM/yyyy HH:mm")</div>
             </div>
             @if (Model.Doc.Status == FinalProject_PRN222_Group7.DAL.Entities.DocumentStatus.Failed && !string.IsNullOrEmpty(Model.Doc.ErrorMessage))
             {

@@ -167,10 +167,6 @@
                     Môn học & Tài liệu
                 </a>
             }
-            <a href="/Reports" class="btn btn-secondary w-full" style="justify-content:flex-start;gap:12px">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-                Xem báo cáo
-            </a>
         </div>
     </div>
 </div>
@@ -251,51 +247,187 @@
     </div>
 </div>
 
+<!-- Analytics & Reports Section -->
+<h3 class="nav-section-label" style="font-size:0.9rem;margin-top:32px;margin-bottom:12px;color:var(--text-muted)">Phân tích & Báo cáo học tập</h3>
+<div style="display:grid;grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));gap:20px;margin-bottom:20px">
+    
+    <!-- Donut chart - score distribution -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Phân bố điểm quiz</span>
+        </div>
+        <div class="card-body">
+            <div class="chart-container" style="height:250px">
+                <canvas id="scoreDistChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bar chart - avg score by course -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Điểm quiz trung bình theo môn</span>
+        </div>
+        <div class="card-body">
+            <div class="chart-container" style="height:250px">
+                @if (Model.CourseStats.Any())
+                {
+                    <canvas id="courseBarChart"></canvas>
+                }
+                else
+                {
+                    <div class="empty-state" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center">
+                        <div class="empty-icon" style="font-size:2rem">📊</div>
+                        <div class="empty-title" style="font-size:0.85rem">Chưa có dữ liệu môn học</div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (User.IsInRole("Admin"))
+    {
+        <!-- Revenue table -->
+        <div class="card">
+            <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+                <span class="card-title">Doanh thu theo gói</span>
+                <span style="font-family:var(--font-mono);font-size:0.9rem;color:var(--success);font-weight:600">@Model.Stats.TotalRevenue.ToString("N0") đ</span>
+            </div>
+            <div class="table-wrapper" style="overflow-y:auto;max-height:250px">
+                <table>
+                    <thead>
+                        <tr><th>Gói</th><th>Số GD</th><th>Doanh thu</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Model.RevenueByPackage)
+                        {
+                            <tr>
+                                <td class="text-primary">@r.PackageName</td>
+                                <td style="font-family:var(--font-mono)">@r.Count</td>
+                                <td style="font-family:var(--font-mono);color:var(--success)">@r.Total.ToString("N0") đ</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
 </div><!-- end stagger-children -->
 
 @section Scripts {
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 (function() {
+    // 1. Line Chart: Queries
     var labels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ChartLabels));
     var data   = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ChartData));
 
     var ctx = document.getElementById('queryChart');
-    if (!ctx) return;
-
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Lượt hỏi',
-                data: data,
-                borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59,130,246,0.08)',
-                borderWidth: 2,
-                pointRadius: 3,
-                pointBackgroundColor: '#3b82f6',
-                tension: 0.4,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false }, tooltip: { mode: 'index' } },
-            scales: {
-                x: {
-                    grid: { color: 'rgba(99,130,185,0.08)' },
-                    ticks: { color: '#64748b', font: { size: 11 }, maxTicksLimit: 8 }
-                },
-                y: {
-                    grid: { color: 'rgba(99,130,185,0.08)' },
-                    ticks: { color: '#64748b', font: { size: 11 }, stepSize: 1 },
-                    beginAtZero: true
+    if (ctx) {
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Lượt hỏi',
+                    data: data,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59,130,246,0.08)',
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#3b82f6',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { mode: 'index' } },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(99,130,185,0.08)' },
+                        ticks: { color: '#64748b', font: { size: 11 }, maxTicksLimit: 8 }
+                    },
+                    y: {
+                        grid: { color: 'rgba(99,130,185,0.08)' },
+                        ticks: { color: '#64748b', font: { size: 11 }, stepSize: 1 },
+                        beginAtZero: true
+                    }
                 }
             }
-        }
+        });
+    }
+
+    // 2. Doughnut Chart: Score Distribution with descriptive annotations in legend
+    var scoreData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ScoreDistribution));
+    var totalScores = scoreData.reduce((a, b) => a + b, 0);
+    var scoreLabels = ['A (>=90)', 'B (>=70)', 'C (>=50)', 'D (<50)'].map(function(label, index) {
+        var val = scoreData[index];
+        var pct = totalScores > 0 ? Math.round((val / totalScores) * 100) : 0;
+        return label + ': ' + val + ' lượt (' + pct + '%)';
     });
+
+    var scoreCtx = document.getElementById('scoreDistChart');
+    if (scoreCtx) {
+        new Chart(scoreCtx, {
+            type: 'doughnut',
+            data: {
+                labels: scoreLabels,
+                datasets: [{
+                    data: scoreData,
+                    backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 10,
+                            font: { size: 10 },
+                            color: '#64748b'
+                        }
+                    }
+                },
+                cutout: '65%'
+            }
+        });
+    }
+
+    // 3. Bar Chart: Course Average Quiz Score
+    var courseNames = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.CourseStats.Select(s => s.CourseName)));
+    var courseScores = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.CourseStats.Select(s => Math.Round(s.AverageScore, 1))));
+
+    var courseCtx = document.getElementById('courseBarChart');
+    if (courseCtx && courseNames && courseNames.length > 0) {
+        new Chart(courseCtx, {
+            type: 'bar',
+            data: {
+                labels: courseNames,
+                datasets: [{
+                    label: 'Điểm TB',
+                    data: courseScores,
+                    backgroundColor: 'rgba(59,130,246,0.7)',
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { color: '#64748b', font: { size: 11 } } },
+                    y: { beginAtZero: true, max: 100, ticks: { color: '#64748b', font: { size: 11 } } }
+                }
+            }
+        });
+    }
 })();
 </script>
 }

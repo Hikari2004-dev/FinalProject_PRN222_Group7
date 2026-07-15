@@ -1,10 +1,13 @@
 using FinalProject_PRN222_Group7.DAL.Data;
 using FinalProject_PRN222_Group7.DAL.Entities;
 using FinalProject_PRN222_Group7.DAL.Repositories;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using PayOS;
 using PayOS.Models.V2.PaymentRequests;
 using PayOS.Models.Webhooks;
+using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace FinalProject_PRN222_Group7.BLL.Services
@@ -20,17 +23,39 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         Task DeleteQuizAsync(int id);
         Task<IEnumerable<int>> GetUserAttemptedQuizIdsAsync(string userId);
         Task<IEnumerable<QuizAttempt>> GetUserCompletedAttemptsAsync(string userId);
+        Task<QuizGenerationResult> GenerateQuestionsFromDocumentAsync(int documentId, int courseId, int numQuestions, IEnumerable<string> existingQuestionContents);
     }
+
+    public record QuizGenerationResult(List<Question> Questions, int TokensUsed, string? ModelName);
 
     public class QuizService : IQuizService
     {
         private readonly IQuizRepository _repo;
         private readonly AppDbContext _context;
+        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IConfiguration _configuration;
 
-        public QuizService(IQuizRepository repo, AppDbContext context)
+        private static int _keyIndex = 0;
+        private static readonly object _keyLock = new();
+
+        public QuizService(IQuizRepository repo, AppDbContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration)
         {
             _repo = repo;
             _context = context;
+            _httpClientFactory = httpClientFactory;
+            _configuration = configuration;
+        }
+
+        private string GetNextApiKey(List<string> keys)
+        {
+            if (keys == null || !keys.Any()) return string.Empty;
+            lock (_keyLock)
+            {
+                if (_keyIndex >= keys.Count) _keyIndex = 0;
+                var key = keys[_keyIndex];
+                _keyIndex = (_keyIndex + 1) % keys.Count;
+                return key;
+            }
         }
 
         public async Task<IEnumerable<Quiz>> GetByCourseAsync(int courseId)
@@ -125,6 +150,93 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                 .Where(a => a.UserId == userId && a.IsCompleted)
                 .OrderByDescending(a => a.CompletedAt)
                 .ToListAsync();
+
+        public async Task<QuizGenerationResult> GenerateQuestionsFromDocumentAsync(int documentId, int courseId, int numQuestions, IEnumerable<string> existingQuestionContents)
+        {
+            var chunks = await _context.DocumentChunks
+                .Where(c => c.DocumentId == documentId)
+                .OrderBy(c => c.ChunkIndex)
+                .Select(c => c.Content)
+                .ToListAsync();
+            var contextText = string.Join("\n", chunks);
+
+            var existingList = existingQuestionContents.ToList();
+
+            var geminiSection = _configuration.GetSection("Gemini");
+            var apiKeys = geminiSection.GetSection("ApiKeys").Get<List<string>>() ?? new List<string>();
+            var model = geminiSection.GetValue<string>("Model") ?? "gemini-2.0-flash";
+
+            if (!apiKeys.Any())
+                return new QuizGenerationResult(GenerateMockQuestions(numQuestions), Math.Max(1, contextText.Length / 4), "mock-fallback");
+
+            var client = _httpClientFactory.CreateClient();
+            var retries = 0;
+            var lastError = string.Empty;
+
+            while (retries < apiKeys.Count)
+            {
+                var apiKey = GetNextApiKey(apiKeys);
+                if (string.IsNullOrEmpty(apiKey) || apiKey.Contains("YOUR-")) { retries++; continue; }
+
+                var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
+                var prompt = $"Dựa vào nội dung tài liệu học tập sau đây:\n\n{contextText}\n\n" +
+                             $"Hãy tạo ra đúng {numQuestions} câu hỏi trắc nghiệm khách quan mới để kiểm tra kiến thức.\n" +
+                             $"Mỗi câu hỏi phải có 4 phương án lựa chọn A, B, C, D và có đáp án đúng kèm theo lời giải thích ngắn gọn.\n\n" +
+                             $"RÀNG BUỘC: Không tạo câu hỏi trùng với danh sách sau:\n" +
+                             $"{(existingList.Any() ? string.Join("\n- ", existingList.Take(150)) : "(Chưa có câu hỏi nào)")}\n\n" +
+                             $"Trả về JSON Array với các trường: content, optionA, optionB, optionC, optionD, correctAnswer (ký tự A/B/C/D), explanation.\n" +
+                             $"Chỉ trả về JSON thô, không bọc trong ```json.";
+
+                var payload = new
+                {
+                    contents = new[] { new { parts = new[] { new { text = prompt } } } },
+                    generationConfig = new { responseMimeType = "application/json" }
+                };
+
+                try
+                {
+                    var response = await client.PostAsJsonAsync(url, payload);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var result = await response.Content.ReadFromJsonAsync<GeminiGenerateResponse>();
+                        var jsonText = result?.Candidates?.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text;
+                        if (!string.IsNullOrEmpty(jsonText))
+                        {
+                            var questions = JsonSerializer.Deserialize<List<Question>>(jsonText, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<Question>();
+                            return new QuizGenerationResult(questions, Math.Max(1, contextText.Length / 4 + jsonText.Length / 4), model);
+                        }
+                    }
+                    lastError = $"HTTP {response.StatusCode}";
+                    retries++;
+                }
+                catch (Exception ex) { lastError = ex.Message; retries++; }
+            }
+
+            return new QuizGenerationResult(GenerateMockQuestions(numQuestions), Math.Max(1, contextText.Length / 4), "mock-fallback");
+        }
+
+        private static List<Question> GenerateMockQuestions(int count)
+        {
+            var questions = new List<Question>();
+            for (int i = 0; i < count; i++)
+                questions.Add(new Question
+                {
+                    Content = $"Câu hỏi mẫu số {i + 1}: Đây là câu hỏi về nội dung tài liệu học tập?",
+                    OptionA = "Đáp án A (đúng)", OptionB = "Đáp án B",
+                    OptionC = "Đáp án C", OptionD = "Đáp án D",
+                    CorrectAnswer = 'A',
+                    Explanation = "Giải thích: Đây là câu trả lời đúng vì nó phù hợp với nội dung tài liệu."
+                });
+            return questions;
+        }
+
+        private class GeminiGenerateResponse
+        {
+            public List<GeminiCandidate>? Candidates { get; set; }
+        }
+        private class GeminiCandidate { public GeminiContent? Content { get; set; } }
+        private class GeminiContent { public List<GeminiPart>? Parts { get; set; } }
+        private class GeminiPart { public string? Text { get; set; } }
     }
 
     public record PaymentCheckoutResult(Payment Payment, string CheckoutUrl);
@@ -144,6 +256,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         Task<Payment> CancelPaymentAsync(int paymentId, string userId);
         Task<Payment> ConfirmPaymentAsync(Webhook webhook);
         Task RegisterWebhookAsync(string webhookUrl);
+        Task<Payment> ProcessSuccessRedirectAsync(int paymentId);
         Task<IEnumerable<Payment>> GetUserPaymentsAsync(string userId);
         Task<IEnumerable<Payment>> GetAllPaymentsAsync();
         Task UpdatePackagePriceAsync(int packageId, decimal newPrice);
@@ -156,19 +269,22 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         private readonly PayOSClient _payOS;
         private readonly ISubscriptionService _subscriptionService;
         private readonly ICreditWalletService _walletService;
+        private readonly IEmailService _emailService;
 
         public PaymentService(
             AppDbContext context,
             IPaymentRepository paymentRepo,
             PayOSClient payOS,
             ISubscriptionService subscriptionService,
-            ICreditWalletService walletService)
+            ICreditWalletService walletService,
+            IEmailService emailService)
         {
             _context = context;
             _paymentRepo = paymentRepo;
             _payOS = payOS;
             _subscriptionService = subscriptionService;
             _walletService = walletService;
+            _emailService = emailService;
         }
 
         public async Task<IEnumerable<Package>> GetPackagesAsync()
@@ -209,7 +325,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                 Status = package.Price <= 0 ? PaymentStatus.Completed : PaymentStatus.Pending,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                ExpiredAt = DateTime.UtcNow.AddMinutes(30)
+                ExpiredAt = DateTime.UtcNow.AddMinutes(10)
             };
             _context.Payments.Add(payment);
             await _context.SaveChangesAsync();
@@ -239,7 +355,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                 Status = PaymentStatus.Pending,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                ExpiredAt = DateTime.UtcNow.AddMinutes(30)
+                ExpiredAt = DateTime.UtcNow.AddMinutes(10)
             };
             _context.Payments.Add(payment);
             await _context.SaveChangesAsync();
@@ -248,10 +364,13 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         }
 
         public async Task<Payment?> GetPaymentForUserAsync(int paymentId, string userId)
-            => await _context.Payments
+        {
+            await AutoCancelExpiredPaymentsAsync();
+            return await _context.Payments
                 .Include(p => p.Package)
                 .Include(p => p.CreditPackage)
                 .FirstOrDefaultAsync(p => p.Id == paymentId && p.UserId == userId);
+        }
 
         public async Task<Payment?> GetPaymentByGatewayOrderCodeAsync(string gatewayOrderCode)
             => await _context.Payments
@@ -307,6 +426,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                 payment ??= await _context.Payments
                     .Include(p => p.Package)
                     .Include(p => p.CreditPackage)
+                    .Include(p => p.User)
                     .FirstOrDefaultAsync(p => p.GatewayOrderCode == gatewayOrderCode);
 
                 if (payment == null)
@@ -348,6 +468,9 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                 payment.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
 
+                // Send invoice email asynchronously to user
+                _ = Task.Run(() => SendInvoiceEmailAsync(payment));
+
                 return payment;
             }
             catch (Exception ex)
@@ -372,10 +495,16 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         }
 
         public async Task<IEnumerable<Payment>> GetUserPaymentsAsync(string userId)
-            => await _paymentRepo.GetUserPaymentsAsync(userId);
+        {
+            await AutoCancelExpiredPaymentsAsync();
+            return await _paymentRepo.GetUserPaymentsAsync(userId);
+        }
 
         public async Task<IEnumerable<Payment>> GetAllPaymentsAsync()
-            => await _paymentRepo.GetAllWithUsersAsync();
+        {
+            await AutoCancelExpiredPaymentsAsync();
+            return await _paymentRepo.GetAllWithUsersAsync();
+        }
 
         private async Task<PaymentCheckoutResult> CreateCheckoutAsync(Payment payment, string description, string baseUrl)
         {
@@ -442,6 +571,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
             return await _context.Payments
                 .Include(p => p.Package)
                 .Include(p => p.CreditPackage)
+                .Include(p => p.User)
                 .FirstOrDefaultAsync(p => p.GatewayOrderCode == orderCode);
         }
 
@@ -463,6 +593,145 @@ namespace FinalProject_PRN222_Group7.BLL.Services
             {
                 package.Price = newPrice;
                 package.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        private async Task SendInvoiceEmailAsync(Payment payment)
+        {
+            if (payment.User == null || string.IsNullOrEmpty(payment.User.Email)) return;
+
+            var itemName = payment.Package?.Name ?? payment.CreditPackage?.Name ?? "Nạp số dư credit";
+            var subject = $"[LMS AI] Hóa đơn thanh toán thành công - {payment.InvoiceNumber}";
+            var body = $@"
+                <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;'>
+                    <div style='text-align: center; border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 20px;'>
+                        <h2 style='color: #3b82f6; margin: 0;'>LMS AI PLATFORM</h2>
+                        <p style='color: #64748b; margin: 5px 0 0 0;'>Cảm ơn bạn đã đăng ký dịch vụ của chúng tôi!</p>
+                    </div>
+                    <p>Xin chào <strong>{payment.User.FullName}</strong>,</p>
+                    <p>Giao dịch thanh toán của bạn đã được xác nhận thành công. Dưới đây là thông tin chi tiết hóa đơn dịch vụ:</p>
+                    
+                    <div style='background-color: #f8fafc; padding: 20px; border-radius: 6px; margin: 20px 0;'>
+                        <table style='width: 100%; border-collapse: collapse; font-size: 0.9em;'>
+                            <tr>
+                                <td style='padding: 6px 0; color: #64748b;'>Mã hóa đơn:</td>
+                                <td style='padding: 6px 0; font-weight: bold; text-align: right; font-family: monospace;'>{payment.InvoiceNumber}</td>
+                            </tr>
+                            <tr>
+                                <td style='padding: 6px 0; color: #64748b;'>Mã giao dịch PayOS:</td>
+                                <td style='padding: 6px 0; font-weight: bold; text-align: right; font-family: monospace;'>{payment.TransactionId}</td>
+                            </tr>
+                            <tr>
+                                <td style='padding: 6px 0; color: #64748b;'>Ngày thanh toán:</td>
+                                <td style='padding: 6px 0; text-align: right;'>{payment.PaidAt?.ToString("dd/MM/yyyy HH:mm:ss") ?? DateTime.UtcNow.ToString("dd/MM/yyyy HH:mm:ss")}</td>
+                            </tr>
+                            <tr>
+                                <td style='padding: 6px 0; color: #64748b;'>Phương thức:</td>
+                                <td style='padding: 6px 0; text-align: right;'>Cổng thanh toán PayOS</td>
+                            </tr>
+                            <tr style='border-top: 1px solid #e2e8f0;'>
+                                <td style='padding: 12px 0 6px 0; font-weight: bold; color: #1e293b;'>Sản phẩm đăng ký:</td>
+                                <td style='padding: 12px 0 6px 0; font-weight: bold; text-align: right; color: #3b82f6;'>{itemName}</td>
+                            </tr>
+                            <tr style='border-top: 2px solid #3b82f6;'>
+                                <td style='padding: 12px 0 0 0; font-size: 1.1em; font-weight: bold; color: #1e293b;'>Tổng cộng:</td>
+                                <td style='padding: 12px 0 0 0; font-size: 1.1em; font-weight: bold; text-align: right; color: #10b981;'>{payment.Amount.ToString("N0")} đ</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <p style='font-size: 0.9em; color: #64748b;'>Ví tài khoản và các quyền lợi đi kèm gói dịch vụ đã được kích hoạt tự động trên hệ thống học tập.</p>
+                    <p style='text-align: center; margin-top: 30px;'>
+                        <a href='https://localhost:5034/' style='display: inline-block; padding: 10px 20px; background-color: #3b82f6; color: #fff; text-decoration: none; border-radius: 6px; font-weight: bold;'>Đi tới bảng điều khiển</a>
+                    </p>
+                    
+                    <div style='margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 15px; text-align: center; font-size: 0.8em; color: #94a3b8;'>
+                        Đây là email tự động từ hệ thống LMS AI. Vui lòng không trả lời trực tiếp email này.
+                    </div>
+                </div>";
+
+            try
+            {
+                await _emailService.SendEmailAsync(payment.User.Email, subject, body);
+            }
+            catch (Exception)
+            {
+                // Silent catch to not break payment callback if SMTP temporarily fails
+            }
+        }
+
+        public async Task<Payment> ProcessSuccessRedirectAsync(int paymentId)
+        {
+            await AutoCancelExpiredPaymentsAsync();
+            var payment = await _context.Payments
+                .Include(p => p.Package)
+                .Include(p => p.CreditPackage)
+                .Include(p => p.User)
+                .FirstOrDefaultAsync(p => p.Id == paymentId);
+
+            if (payment == null)
+            {
+                throw new InvalidOperationException("Payment not found");
+            }
+
+            if (payment.Status == PaymentStatus.Completed)
+            {
+                return payment;
+            }
+
+            if (long.TryParse(payment.GatewayOrderCode, out var orderCode))
+            {
+                try
+                {
+                    var paymentLinkInfo = await _payOS.PaymentRequests.GetAsync(orderCode);
+                    if (paymentLinkInfo != null && paymentLinkInfo.Status == PayOS.Models.V2.PaymentRequests.PaymentLinkStatus.Paid)
+                    {
+                        payment.Status = PaymentStatus.Processing;
+                        payment.UpdatedAt = DateTime.UtcNow;
+                        await _context.SaveChangesAsync();
+
+                        switch (payment.PurchaseType)
+                        {
+                            case PaymentPurchaseType.Subscription:
+                                await GrantSubscriptionAsync(payment);
+                                break;
+                            case PaymentPurchaseType.CreditTopUp:
+                                await GrantPurchasedCreditsAsync(payment);
+                                break;
+                        }
+
+                        payment.Status = PaymentStatus.Completed;
+                        payment.PaidAt = DateTime.UtcNow;
+                        payment.UpdatedAt = DateTime.UtcNow;
+                        await _context.SaveChangesAsync();
+
+                        // Send invoice email
+                        _ = Task.Run(() => SendInvoiceEmailAsync(payment));
+                    }
+                }
+                catch (Exception)
+                {
+                    // Fallback or log error
+                }
+            }
+
+            return payment;
+        }
+
+        private async Task AutoCancelExpiredPaymentsAsync()
+        {
+            var expiredPayments = await _context.Payments
+                .Where(p => p.Status == PaymentStatus.Pending && p.ExpiredAt < DateTime.UtcNow)
+                .ToListAsync();
+
+            if (expiredPayments.Any())
+            {
+                foreach (var p in expiredPayments)
+                {
+                    p.Status = PaymentStatus.Cancelled;
+                    p.UpdatedAt = DateTime.UtcNow;
+                }
                 await _context.SaveChangesAsync();
             }
         }
@@ -581,6 +850,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
 
         public async Task<IEnumerable<AppUser>> GetRecentUsersAsync(int count = 20)
             => await _context.Users
+                .Include(u => u.CreditWallet)
                 .OrderByDescending(u => u.CreatedAt)
                 .Take(count)
                 .ToListAsync();
@@ -843,6 +1113,187 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         {
             _context.BenchmarkRuns.Add(run);
             await _context.SaveChangesAsync();
+        }
+    }
+
+    public interface IUserService
+    {
+        Task<IdentityResult> CreateSingleUserAsync(string fullName, string email, string role, string loginBaseUrl);
+        Task<UserBulkImportResult> CreateBulkUsersAsync(IEnumerable<UserBulkRow> rows, string loginBaseUrl);
+        Task<IdentityResult> EditUserAsync(string currentUserId, string editUserId, string role, bool isActive);
+    }
+
+    public record UserBulkRow(string FullName, string Email, string Role);
+    public record UserBulkImportResult(int SuccessCount, List<string> Errors);
+
+    public class UserService : IUserService
+    {
+        private readonly UserManager<AppUser> _userManager;
+        private readonly ICreditWalletService _walletService;
+        private readonly ISubscriptionService _subscriptionService;
+        private readonly IEmailService _emailService;
+
+        public UserService(
+            UserManager<AppUser> userManager,
+            ICreditWalletService walletService,
+            ISubscriptionService subscriptionService,
+            IEmailService emailService)
+        {
+            _userManager = userManager;
+            _walletService = walletService;
+            _subscriptionService = subscriptionService;
+            _emailService = emailService;
+        }
+
+        public async Task<IdentityResult> CreateSingleUserAsync(string fullName, string email, string role, string loginBaseUrl)
+        {
+            var password = GenerateRandomPassword();
+            var user = new AppUser
+            {
+                FullName = fullName,
+                UserName = email,
+                Email = email,
+                EmailConfirmed = true
+            };
+
+            var result = await _userManager.CreateAsync(user, password);
+            if (result.Succeeded)
+            {
+                var targetRole = new[] { "Student", "Lecturer", "Admin" }.Contains(role) ? role : "Student";
+                await _userManager.AddToRoleAsync(user, targetRole);
+
+                if (targetRole == "Student")
+                {
+                    await _walletService.EnsureWalletAsync(user.Id, ["Student"]);
+                    await _subscriptionService.ActivatePackageAsync(user.Id, 10);
+                }
+                else
+                {
+                    await _walletService.EnsureWalletAsync(user.Id, [targetRole]);
+                }
+
+                // Send email notification
+                await SendAccountEmailAsync(fullName, email, password, loginBaseUrl);
+            }
+            return result;
+        }
+
+        public async Task<UserBulkImportResult> CreateBulkUsersAsync(IEnumerable<UserBulkRow> rows, string loginBaseUrl)
+        {
+            int successCount = 0;
+            var errors = new List<string>();
+
+            foreach (var row in rows)
+            {
+                var targetRole = new[] { "Student", "Lecturer", "Admin" }.Contains(row.Role) ? row.Role : "Student";
+                var password = GenerateRandomPassword();
+                var user = new AppUser
+                {
+                    FullName = row.FullName,
+                    UserName = row.Email,
+                    Email = row.Email,
+                    EmailConfirmed = true
+                };
+
+                var result = await _userManager.CreateAsync(user, password);
+                if (result.Succeeded)
+                {
+                    await _userManager.AddToRoleAsync(user, targetRole);
+
+                    if (targetRole == "Student")
+                    {
+                        await _walletService.EnsureWalletAsync(user.Id, ["Student"]);
+                        await _subscriptionService.ActivatePackageAsync(user.Id, 10);
+                    }
+                    else
+                    {
+                        await _walletService.EnsureWalletAsync(user.Id, [targetRole]);
+                    }
+
+                    try
+                    {
+                        await SendAccountEmailAsync(row.FullName, row.Email, password, loginBaseUrl);
+                    }
+                    catch (Exception ex)
+                    {
+                        errors.Add($"Đã tạo {row.Email} nhưng gửi mail lỗi: {ex.Message}");
+                    }
+
+                    successCount++;
+                }
+                else
+                {
+                    errors.Add($"Lỗi tạo {row.Email}: {string.Join("; ", result.Errors.Select(e => e.Description))}");
+                }
+            }
+
+            return new UserBulkImportResult(successCount, errors);
+        }
+
+        public async Task<IdentityResult> EditUserAsync(string currentUserId, string editUserId, string role, bool isActive)
+        {
+            if (currentUserId == editUserId)
+            {
+                return IdentityResult.Failed(new IdentityError { Description = "Bạn không thể tự thay đổi vai trò của chính mình." });
+            }
+
+            var user = await _userManager.FindByIdAsync(editUserId);
+            if (user == null)
+            {
+                return IdentityResult.Failed(new IdentityError { Description = "Người dùng không tồn tại." });
+            }
+
+            var targetRoles = await _userManager.GetRolesAsync(user);
+            if (targetRoles.Contains("Admin"))
+            {
+                return IdentityResult.Failed(new IdentityError { Description = "Bạn không thể thay đổi thông tin của tài khoản quản trị viên khác." });
+            }
+
+            user.IsActive = isActive;
+            var updateResult = await _userManager.UpdateAsync(user);
+            if (!updateResult.Succeeded)
+            {
+                return updateResult;
+            }
+
+            var currentRoles = await _userManager.GetRolesAsync(user);
+            var removeResult = await _userManager.RemoveFromRolesAsync(user, currentRoles);
+            if (!removeResult.Succeeded)
+            {
+                return removeResult;
+            }
+
+            var addResult = await _userManager.AddToRoleAsync(user, role);
+            return addResult;
+        }
+
+        private string GenerateRandomPassword()
+        {
+            return "P@ss" + Guid.NewGuid().ToString("N")[..8];
+        }
+
+        private async Task SendAccountEmailAsync(string fullName, string email, string password, string loginBaseUrl)
+        {
+            var subject = "Thông tin tài khoản hệ thống LMS AI của bạn";
+            var body = $@"
+                <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;'>
+                    <h2 style='color: #3b82f6;'>LMS AI Platform</h2>
+                    <p>Xin chào <strong>{fullName}</strong>,</p>
+                    <p>Tài khoản học tập và giảng dạy của bạn trên hệ thống LMS AI đã được khởi tạo bởi Quản trị viên.</p>
+                    <div style='background-color: #f8fafc; padding: 15px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #3b82f6;'>
+                        <p style='margin: 4px 0;'><strong>Tài khoản đăng nhập:</strong> <span style='font-family: monospace;'>{email}</span></p>
+                        <p style='margin: 4px 0;'><strong>Mật khẩu đăng nhập:</strong> <span style='font-family: monospace;'>{password}</span></p>
+                    </div>
+                    <p>Vui lòng nhấp vào liên kết bên dưới để đăng nhập ngay:</p>
+                    <p style='text-align: center;'>
+                        <a href='{loginBaseUrl}' style='display: inline-block; padding: 10px 20px; background-color: #3b82f6; color: #fff; text-decoration: none; border-radius: 6px; font-weight: bold;'>Đăng Nhập Ngay</a>
+                    </p>
+                    <p style='color: #64748b; font-size: 0.85em; margin-top: 30px;'>
+                        * Lưu ý bảo mật: Hãy thay đổi mật khẩu ngay sau lần đăng nhập đầu tiên để đảm bảo an toàn cho tài khoản của bạn.
+                    </p>
+                </div>";
+
+            await _emailService.SendEmailAsync(email, subject, body);
         }
     }
 }

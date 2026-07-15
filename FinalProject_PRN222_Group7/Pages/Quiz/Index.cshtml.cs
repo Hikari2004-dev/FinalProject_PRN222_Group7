@@ -1,19 +1,9 @@
 using FinalProject_PRN222_Group7.BLL.Services;
-using FinalProject_PRN222_Group7.DAL.Data;
 using FinalProject_PRN222_Group7.DAL.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
-using System.Net.Http.Json;
-using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace FinalProject_PRN222_Group7.Pages.Quiz
 {
@@ -24,8 +14,6 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
         private readonly ICourseService _courseService;
         private readonly IQuestionBankService _questionBankService;
         private readonly UserManager<AppUser> _userManager;
-        private readonly IHttpClientFactory _httpClientFactory;
-        private readonly IConfiguration _configuration;
         private readonly IAiUsageGate _aiUsageGate;
         private readonly ILogger<IndexModel> _logger;
 
@@ -35,8 +23,6 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
             ICourseService courseService,
             IQuestionBankService questionBankService,
             UserManager<AppUser> userManager,
-            IHttpClientFactory httpClientFactory,
-            IConfiguration configuration,
             IAiUsageGate aiUsageGate,
             ILogger<IndexModel> logger)
         {
@@ -45,8 +31,6 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
             _courseService = courseService;
             _questionBankService = questionBankService;
             _userManager = userManager;
-            _httpClientFactory = httpClientFactory;
-            _configuration = configuration;
             _aiUsageGate = aiUsageGate;
             _logger = logger;
         }
@@ -56,20 +40,6 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
         public IEnumerable<Document> IndexedDocuments { get; set; } = new List<Document>();
         public IEnumerable<Course> Courses { get; set; } = new List<Course>();
 
-        private static int _keyIndex = 0;
-        private static readonly object _keyLock = new object();
-
-        private string GetNextApiKey(List<string> keys)
-        {
-            if (keys == null || !keys.Any()) return string.Empty;
-            lock (_keyLock)
-            {
-                if (_keyIndex >= keys.Count) _keyIndex = 0;
-                var key = keys[_keyIndex];
-                _keyIndex = (_keyIndex + 1) % keys.Count;
-                return key;
-            }
-        }
 
         public string CurrentUserId { get; set; } = string.Empty;
 
@@ -149,7 +119,10 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
                 "quiz.generate",
                 async () =>
                 {
-                    var generated = await GenerateQuestionsAsync(documentId, doc.CourseId, numQuestions);
+                    var existingContents = (await _questionBankService.GetQuestionsByCourseAsync(doc.CourseId))
+                        .Select(q => q.Content).Distinct();
+
+                    var generated = await _quizService.GenerateQuestionsFromDocumentAsync(documentId, doc.CourseId, numQuestions, existingContents);
                     var questions = generated.Questions;
 
                     var bankItems = questions.Select(q => new QuestionBankItem
@@ -195,149 +168,6 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
             return new JsonResult(new { success = true });
         }
 
-        private async Task<QuizGenerationResult> GenerateQuestionsAsync(int documentId, int courseId, int numQuestions)
-        {
-            var existingQuestions = (await _questionBankService.GetQuestionsByCourseAsync(courseId))
-                .Select(q => q.Content)
-                .Distinct()
-                .ToList();
-
-            var chunks = (await _docService.GetChunksByDocumentIdAsync(documentId))
-                .Select(c => c.Content)
-                .ToList();
-            var contextText = string.Join("\n", chunks);
-
-            var geminiSection = _configuration.GetSection("Gemini");
-            var apiKeys = geminiSection.GetSection("ApiKeys").Get<List<string>>() ?? new List<string>();
-            var model = geminiSection.GetValue<string>("Model") ?? "gemini-3.5-flash";
-
-            if (!apiKeys.Any())
-            {
-                var mockQuestions = GenerateMockQuestions(numQuestions);
-                var mockTokens = Math.Max(1, contextText.Length / 4);
-                return new QuizGenerationResult(mockQuestions, mockTokens, "mock-fallback");
-            }
-
-            var client = _httpClientFactory.CreateClient();
-            var retries = 0;
-            var maxRetries = apiKeys.Count;
-            var lastErrorMsg = string.Empty;
-
-            while (retries < maxRetries)
-            {
-                var apiKey = GetNextApiKey(apiKeys);
-                if (string.IsNullOrEmpty(apiKey) || apiKey.Contains("YOUR-"))
-                {
-                    retries++;
-                    continue;
-                }
-
-                var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
-
-                var prompt = $"Dựa vào nội dung tài liệu học tập sau đây:\n\n{contextText}\n\n" +
-                             $"Hãy tạo ra đúng {numQuestions} câu hỏi trắc nghiệm khách quan mới để kiểm tra kiến thức.\n" +
-                             $"Mỗi câu hỏi phải có 4 phương án lựa chọn A, B, C, D và có đáp án đúng kèm theo lời giải thích ngắn gọn.\n\n" +
-                             $"RÀNG BUỘC CỰC KỲ QUAN TRỌNG:\n" +
-                             $"- Bạn KHÔNG ĐƯỢC tạo các câu hỏi trùng lặp hoặc có nội dung tương tự với danh sách các câu hỏi đã có sau đây:\n" +
-                             $"{(existingQuestions.Any() ? string.Join("\n- ", existingQuestions.Take(150)) : "(Chưa có câu hỏi nào trong kho)")}\n\n" +
-                             $"- Định dạng kết quả trả về phải là một mảng JSON (JSON Array) của các đối tượng câu hỏi với các trường chính xác như sau:\n" +
-                             $"[\n" +
-                             $"  {{\n" +
-                             $"    \"content\": \"Nội dung câu hỏi mới\",\n" +
-                             $"    \"optionA\": \"Nội dung phương án A\",\n" +
-                             $"    \"optionB\": \"Nội dung phương án B\",\n" +
-                             $"    \"optionC\": \"Nội dung phương án C\",\n" +
-                             $"    \"optionD\": \"Nội dung phương án D\",\n" +
-                             $"    \"correctAnswer\": \"A\",\n" +
-                             $"    \"explanation\": \"Giải thích tại sao đúng\"\n" +
-                             $"  }}\n" +
-                             $"]\n\n" +
-                             $"Chỉ trả về chuỗi JSON thô hợp lệ, không bọc trong khối code ```json. Không chứa bất kỳ thông tin thừa nào ngoài JSON Array.";
-
-                var payload = new
-                {
-                    contents = new[]
-                    {
-                        new { parts = new[] { new { text = prompt } } }
-                    },
-                    generationConfig = new
-                    {
-                        responseMimeType = "application/json"
-                    }
-                };
-
-                try
-                {
-                    var response = await client.PostAsJsonAsync(url, payload);
-                    if (response.IsSuccessStatusCode)
-                    {
-                        var geminiResult = await response.Content.ReadFromJsonAsync<GeminiGenerateResponse>();
-                        var jsonText = geminiResult?.Candidates?.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text;
-                        if (!string.IsNullOrEmpty(jsonText))
-                        {
-                            var questions = JsonSerializer.Deserialize<List<Question>>(jsonText, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<Question>();
-                            var tokensUsed = contextText.Length / 4 + jsonText.Length / 4;
-                            return new QuizGenerationResult(questions, Math.Max(tokensUsed, 1), model);
-                        }
-
-                        lastErrorMsg = "Gemini API trả về nội dung rỗng.";
-                        retries++;
-                        continue;
-                    }
-
-                    var errBody = await response.Content.ReadAsStringAsync();
-                    lastErrorMsg = $"HTTP {response.StatusCode} - {errBody}";
-                    retries++;
-                }
-                catch (Exception ex)
-                {
-                    lastErrorMsg = ex.Message;
-                    retries++;
-                }
-            }
-
-            var fallbackQuestions = GenerateMockQuestions(numQuestions);
-            var fallbackTokens = Math.Max(1, contextText.Length / 4);
-            return new QuizGenerationResult(fallbackQuestions, fallbackTokens, "mock-fallback");
-        }
-
-        private static List<Question> GenerateMockQuestions(int count)
-        {
-            var questions = new List<Question>();
-            for (int i = 0; i < count; i++)
-            {
-                questions.Add(new Question
-                {
-                    Content = $"Câu hỏi mẫu số {i + 1}: Đây là câu hỏi về nội dung tài liệu học tập?",
-                    OptionA = "Đáp án A (đúng)",
-                    OptionB = "Đáp án B",
-                    OptionC = "Đáp án C",
-                    OptionD = "Đáp án D",
-                    CorrectAnswer = 'A',
-                    Explanation = "Giải thích: Đây là câu trả lời đúng vì nó phù hợp với nội dung tài liệu."
-                });
-            }
-            return questions;
-        }
-
-        private record QuizGenerationResult(List<Question> Questions, int TokensUsed, string? ModelName);
-
-        private class GeminiGenerateResponse
-        {
-            public List<Candidate>? Candidates { get; set; }
-        }
-        private class Candidate
-        {
-            public ContentObj? Content { get; set; }
-        }
-        private class ContentObj
-        {
-            public List<PartObj>? Parts { get; set; }
-        }
-        private class PartObj
-        {
-            public string? Text { get; set; }
-        }
 
         // ============ ADDITIONAL HANDLERS FOR QUESTION BANK & RANDOM QUIZ ============
         public async Task<IActionResult> OnGetBankQuestionsAsync(int courseId, int? chapterId)
