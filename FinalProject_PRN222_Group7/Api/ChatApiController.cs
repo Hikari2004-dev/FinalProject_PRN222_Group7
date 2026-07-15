@@ -38,7 +38,22 @@ namespace FinalProject_PRN222_Group7.Api
             if (user == null) return Unauthorized();
 
             var roles = await _userManager.GetRolesAsync(user);
-            var sessionId = req.SessionId ?? (await _chatService.CreateSessionAsync(user.Id, req.CourseId)).Id;
+            
+            int sessionId;
+            if (req.SessionId.HasValue)
+            {
+                sessionId = req.SessionId.Value;
+                var session = await _chatService.GetSessionAsync(sessionId);
+                if (session == null) return NotFound("Phiên chat không tồn tại.");
+                if (!User.IsInRole("Admin") && session.UserId != user.Id)
+                {
+                    return StatusCode(403, "Bạn không có quyền gửi tin nhắn vào phiên chat này.");
+                }
+            }
+            else
+            {
+                sessionId = (await _chatService.CreateSessionAsync(user.Id, req.CourseId)).Id;
+            }
 
             var history = (await _chatService.GetRecentMessagesAsync(sessionId, 6)).ToList();
             history.Reverse();

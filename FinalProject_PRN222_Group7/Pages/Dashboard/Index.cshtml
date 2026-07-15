@@ -189,7 +189,7 @@
                         </div>
                         <div style="flex:1;min-width:0">
                             <div style="font-size:0.83rem;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@doc.OriginalName</div>
-                            <div style="font-size:0.72rem;color:var(--text-muted)">@doc.Course.Name</div>
+                            <div style="font-size:0.72rem;color:var(--text-muted)">@doc.Course.Name | Người tải: @(doc.UploadedBy?.FullName ?? doc.UploadedByUserEmail)</div>
                         </div>
                         @{
                             var (statusClass, statusText) = doc.Status switch {
@@ -230,7 +230,13 @@
                         </div>
                         <div style="flex:1;min-width:0">
                             <div style="font-size:0.83rem;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@s.Title</div>
-                            <div style="font-size:0.72rem;color:var(--text-muted)">@s.UpdatedAt.ToString("dd/MM HH:mm")</div>
+                            <div style="font-size:0.72rem;color:var(--text-muted)">
+                                @if (User.IsInRole("Admin") || User.IsInRole("Lecturer"))
+                                {
+                                    <span style="font-weight:600;color:var(--accent)">@s.User?.FullName</span> <text>|</text>
+                                }
+                                @s.UpdatedAt.AddHours(7).ToString("dd/MM HH:mm")
+                            </div>
                         </div>
                     </a>
                 }

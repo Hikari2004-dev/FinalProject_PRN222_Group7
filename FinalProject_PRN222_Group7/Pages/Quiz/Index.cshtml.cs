@@ -46,21 +46,25 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
         public async Task OnGetAsync()
         {
             var user = await _userManager.GetUserAsync(User);
-            var courses = await _courseService.GetAllCoursesAsync();
-            Courses = courses;
-            var allQuizzes = new List<DAL.Entities.Quiz>();
+            var isLecturer = User.IsInRole("Lecturer");
+            var isAdmin = User.IsInRole("Admin");
 
+            // Lecturer chỉ thấy môn mình quản lý; Admin và Student thấy tất cả
+            var courses = isLecturer && user != null
+                ? await _courseService.GetAllCoursesAsync(lecturerId: user.Id)
+                : await _courseService.GetAllCoursesAsync();
+            Courses = courses;
+
+            var allQuizzes = new List<DAL.Entities.Quiz>();
             foreach (var course in courses)
             {
                 var quizzes = await _quizService.GetByCourseAsync(course.Id);
                 allQuizzes.AddRange(quizzes);
             }
 
-            var isLecturer = User.IsInRole("Lecturer");
-            var isAdmin = User.IsInRole("Admin");
-
             if (isLecturer || isAdmin)
             {
+                // Giảng viên & Admin chỉ thấy quiz AI-generated trong phạm vi môn đã lọc
                 Quizzes = allQuizzes
                     .Where(q => q.IsAiGenerated)
                     .OrderByDescending(q => q.CreatedAt)
@@ -69,7 +73,6 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
             else if (user != null)
             {
                 var userQuizIds = await _quizService.GetUserAttemptedQuizIdsAsync(user.Id);
-
                 Quizzes = allQuizzes
                     .Where(q => !q.IsAiGenerated && userQuizIds.Contains(q.Id))
                     .OrderByDescending(q => q.CreatedAt)
@@ -85,14 +88,8 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
                 CurrentUserId = user.Id;
                 UserAttempts = await _quizService.GetUserCompletedAttemptsAsync(user.Id);
 
-                if (isLecturer)
-                {
-                    IndexedDocuments = await _docService.GetIndexedDocumentsAsync(user.Id);
-                }
-                else
-                {
-                    IndexedDocuments = await _docService.GetIndexedDocumentsAsync();
-                }
+                // Tài liệu để tạo quiz: Giảng viên chỉ thấy tài liệu thuộc môn mình quản lý
+                IndexedDocuments = await _docService.GetIndexedDocumentsAsync(isLecturer ? user.Id : null);
             }
         }
 

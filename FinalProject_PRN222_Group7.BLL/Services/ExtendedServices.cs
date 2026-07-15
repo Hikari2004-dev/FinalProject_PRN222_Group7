@@ -764,7 +764,16 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         {
             if (userId != null)
             {
-                var userDocs = await _context.Documents.CountAsync(d => d.Status == DocumentStatus.Indexed);
+                var studentCourseIds = await _context.ChatSessions
+                    .Where(s => s.UserId == userId && s.CourseId.HasValue)
+                    .Select(s => s.CourseId!.Value)
+                    .Union(_context.QuizAttempts
+                        .Where(a => a.UserId == userId)
+                        .Select(a => a.Quiz.CourseId))
+                    .Distinct()
+                    .ToListAsync();
+
+                var userDocs = await _context.Documents.CountAsync(d => d.Status == DocumentStatus.Indexed && studentCourseIds.Contains(d.CourseId));
                 var userSessions = await _context.ChatSessions.CountAsync(s => s.UserId == userId);
                 var userAttempts = await _context.QuizAttempts.CountAsync(a => a.UserId == userId && a.IsCompleted);
                 var userQueries = await _context.ChatMessages

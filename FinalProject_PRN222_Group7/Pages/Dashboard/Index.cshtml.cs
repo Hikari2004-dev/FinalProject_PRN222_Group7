@@ -15,6 +15,7 @@ namespace FinalProject_PRN222_Group7.Pages.Dashboard
         private readonly ICreditWalletService _walletService;
         private readonly IQuizService _quizService;
         private readonly UserManager<AppUser> _userManager;
+        private readonly AppDbContext _context;
 
         public IndexModel(
             IReportService reportService,
@@ -22,7 +23,8 @@ namespace FinalProject_PRN222_Group7.Pages.Dashboard
             IChatService chatService,
             ICreditWalletService walletService,
             IQuizService quizService,
-            UserManager<AppUser> userManager)
+            UserManager<AppUser> userManager,
+            AppDbContext context)
         {
             _reportService = reportService;
             _docService = docService;
@@ -30,6 +32,7 @@ namespace FinalProject_PRN222_Group7.Pages.Dashboard
             _walletService = walletService;
             _quizService = quizService;
             _userManager = userManager;
+            _context = context;
         }
 
         public string UserName { get; set; } = string.Empty;
@@ -78,21 +81,53 @@ namespace FinalProject_PRN222_Group7.Pages.Dashboard
                 return;
             }
 
-            var allDocs = await _docService.GetAllDocumentsAsync();
+            // Tải tài liệu theo phạm vi role: Giảng viên lọc theo môn quản lý ngay ở DB
+            var allDocs = isLecturer
+                ? await _docService.GetAllDocumentsAsync(lecturerId: user.Id)
+                : await _docService.GetAllDocumentsAsync();
+
             if (isLecturer)
             {
-                var myDocs = allDocs.Where(d => d.UploadedById == user.Id).ToList();
+                var myDocs = allDocs.Where(d => d.Course.LecturerId == user.Id).ToList();
                 MyDocumentCount = myDocs.Count;
                 RecentDocuments = myDocs.Take(5).ToList();
-            }
-            else
-            {
-                RecentDocuments = allDocs.Take(5).ToList();
-            }
 
-            var sessions = await _chatService.GetUserSessionsAsync(user.Id);
-            RecentSessions = sessions.Take(5).ToList();
-            MyChatSessions = sessions.Count();
+                var sessions = await _chatService.GetUserSessionsAsync(user.Id);
+                RecentSessions = sessions.Take(5).ToList();
+                MyChatSessions = sessions.Count();
+            }
+            else if (isAdmin)
+            {
+                MyDocumentCount = allDocs.Count();
+                RecentDocuments = allDocs.Take(5).ToList();
+
+                RecentSessions = await _context.ChatSessions
+                    .Include(s => s.Course)
+                    .Include(s => s.User)
+                    .OrderByDescending(s => s.UpdatedAt)
+                    .Take(5)
+                    .ToListAsync();
+                MyChatSessions = await _context.ChatSessions.CountAsync();
+            }
+            else // Student
+            {
+                var studentCourseIds = await _context.ChatSessions
+                    .Where(s => s.UserId == user.Id && s.CourseId.HasValue)
+                    .Select(s => s.CourseId!.Value)
+                    .Union(_context.QuizAttempts
+                        .Where(a => a.UserId == user.Id)
+                        .Select(a => a.Quiz.CourseId))
+                    .Distinct()
+                    .ToListAsync();
+
+                var myDocs = allDocs.Where(d => studentCourseIds.Contains(d.CourseId)).ToList();
+                MyDocumentCount = myDocs.Count;
+                RecentDocuments = myDocs.Take(5).ToList();
+
+                var sessions = await _chatService.GetUserSessionsAsync(user.Id);
+                RecentSessions = sessions.Take(5).ToList();
+                MyChatSessions = sessions.Count();
+            }
 
             var attempts = (await _quizService.GetUserCompletedAttemptsAsync(user.Id)).ToList();
             MyQuizAttempts = attempts.Count;

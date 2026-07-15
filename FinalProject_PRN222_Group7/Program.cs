@@ -17,7 +17,12 @@ namespace FinalProject_PRN222_Group7
 
             // ── Database ──────────────────────────────────────────────────────
             builder.Services.AddDbContext<AppDbContext>(options =>
-                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+                options.UseSqlServer(
+                    builder.Configuration.GetConnectionString("DefaultConnection"),
+                    sqlOptions => sqlOptions.EnableRetryOnFailure(
+                        maxRetryCount: 5,
+                        maxRetryDelay: TimeSpan.FromSeconds(30),
+                        errorNumbersToAdd: null)));
 
             // ── Identity ──────────────────────────────────────────────────────
             builder.Services.AddIdentity<AppUser, IdentityRole>(options =>

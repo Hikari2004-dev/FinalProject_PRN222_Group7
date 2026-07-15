@@ -10,7 +10,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
     // ============ DOCUMENT SERVICE ============
     public interface IDocumentService
     {
-        Task<IEnumerable<Document>> GetAllDocumentsAsync(string? userId = null, int? courseId = null);
+        Task<IEnumerable<Document>> GetAllDocumentsAsync(string? userId = null, int? courseId = null, string? lecturerId = null);
         Task<Document?> GetDocumentAsync(int id);
         Task<Document> CreateDocumentAsync(Document doc);
         Task UpdateStatusAsync(int id, DocumentStatus status, string? errorMsg = null, int chunkCount = 0);
@@ -33,15 +33,19 @@ namespace FinalProject_PRN222_Group7.BLL.Services
             _context = context;
         }
 
-        public async Task<IEnumerable<Document>> GetAllDocumentsAsync(string? userId = null, int? courseId = null)
+        public async Task<IEnumerable<Document>> GetAllDocumentsAsync(string? userId = null, int? courseId = null, string? lecturerId = null)
         {
             var query = _context.Documents
                 .Include(d => d.Course)
                 .Include(d => d.UploadedBy)
                 .AsQueryable();
 
+            // Lọc theo người upload (log audit)
             if (userId != null) query = query.Where(d => d.UploadedById == userId);
+            // Lọc theo môn học cụ thể
             if (courseId != null) query = query.Where(d => d.CourseId == courseId);
+            // Lọc theo giảng viên quản lý môn học (không phụ thuộc vào ai upload)
+            if (lecturerId != null) query = query.Where(d => d.Course.LecturerId == lecturerId);
 
             return await query.OrderByDescending(d => d.UploadedAt).ToListAsync();
         }
@@ -374,6 +378,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
     public interface IChatService
     {
         Task<IEnumerable<ChatSession>> GetUserSessionsAsync(string userId);
+        Task<IEnumerable<ChatSession>> GetAllSessionsAsync();
         Task<ChatSession> CreateSessionAsync(string userId, int? courseId = null);
         Task<ChatSession?> GetSessionAsync(int id);
         Task<ChatMessage> AddMessageAsync(int sessionId, MessageRole role, string content, string? citations = null, int tokensUsed = 0);
@@ -428,6 +433,15 @@ namespace FinalProject_PRN222_Group7.BLL.Services
 
         public async Task<IEnumerable<ChatSession>> GetUserSessionsAsync(string userId)
             => await _repo.GetUserSessionsAsync(userId);
+
+        public async Task<IEnumerable<ChatSession>> GetAllSessionsAsync()
+            => await _context.ChatSessions
+                .Include(s => s.User)
+                .Include(s => s.Course)
+                .Where(s => s.IsActive)
+                .OrderByDescending(s => s.UpdatedAt)
+                .Take(100)
+                .ToListAsync();
 
         public async Task<ChatSession> CreateSessionAsync(string userId, int? courseId = null)
         {
