@@ -15,6 +15,7 @@ namespace FinalProject_PRN222_Group7.Pages.Dashboard
         private readonly ICreditWalletService _walletService;
         private readonly IQuizService _quizService;
         private readonly UserManager<AppUser> _userManager;
+        private readonly AppDbContext _context;
 
         public IndexModel(
             IReportService reportService,
@@ -22,7 +23,8 @@ namespace FinalProject_PRN222_Group7.Pages.Dashboard
             IChatService chatService,
             ICreditWalletService walletService,
             IQuizService quizService,
-            UserManager<AppUser> userManager)
+            UserManager<AppUser> userManager,
+            AppDbContext context)
         {
             _reportService = reportService;
             _docService = docService;
@@ -30,6 +32,7 @@ namespace FinalProject_PRN222_Group7.Pages.Dashboard
             _walletService = walletService;
             _quizService = quizService;
             _userManager = userManager;
+            _context = context;
         }
 
         public string UserName { get; set; } = string.Empty;
@@ -43,37 +46,88 @@ namespace FinalProject_PRN222_Group7.Pages.Dashboard
         public List<ChatSession> RecentSessions { get; set; } = new();
         public List<string> ChartLabels { get; set; } = new();
         public List<int> ChartData { get; set; } = new();
+        
+        // Merged Reports properties
+        public int[] ScoreDistribution { get; set; } = new int[4];
+        public IEnumerable<CourseQuizStat> CourseStats { get; set; } = new List<CourseQuizStat>();
+        public List<PackageRevenue> RevenueByPackage { get; set; } = new();
+
+        public record PackageRevenue(string PackageName, int Count, decimal Total);
 
         public async Task OnGetAsync()
         {
             var user = await _userManager.GetUserAsync(User);
             UserName = user?.FullName ?? user?.UserName ?? "Bạn";
 
-            Stats = await _reportService.GetDashboardStatsAsync();
-            var dailyStats = (await _reportService.GetDailyQueryStatsAsync(30)).ToList();
+            var isLecturer = User.IsInRole("Lecturer");
+            var isAdmin = User.IsInRole("Admin");
+            
+            string? reportUserId = (isLecturer || isAdmin) ? null : user?.Id;
+            string? reportLecturerId = isLecturer ? user?.Id : null;
+
+            Stats = await _reportService.GetDashboardStatsAsync(reportUserId, reportLecturerId);
+            var dailyStats = (await _reportService.GetDailyQueryStatsAsync(30, reportUserId, reportLecturerId)).ToList();
             ChartLabels = dailyStats.Select(s => s.Date.ToString("dd/MM")).ToList();
             ChartData = dailyStats.Select(s => s.Count).ToList();
+
+            ScoreDistribution = await _reportService.GetQuizScoreDistributionAsync(reportUserId, reportLecturerId);
+            CourseStats = await _reportService.GetCourseQuizStatsAsync(reportUserId, reportLecturerId);
+            
+            var bllRev = await _reportService.GetRevenueByPackageAsync();
+            RevenueByPackage = bllRev.Select(r => new PackageRevenue(r.PackageName, r.Count, r.Total)).ToList();
 
             if (user == null)
             {
                 return;
             }
 
-            var allDocs = await _docService.GetAllDocumentsAsync();
-            if (User.IsInRole("Lecturer"))
+            // Tải tài liệu theo phạm vi role: Giảng viên lọc theo môn quản lý ngay ở DB
+            var allDocs = isLecturer
+                ? await _docService.GetAllDocumentsAsync(lecturerId: user.Id)
+                : await _docService.GetAllDocumentsAsync();
+
+            if (isLecturer)
             {
-                var myDocs = allDocs.Where(d => d.UploadedById == user.Id).ToList();
+                var myDocs = allDocs.Where(d => d.Course.LecturerId == user.Id).ToList();
                 MyDocumentCount = myDocs.Count;
                 RecentDocuments = myDocs.Take(5).ToList();
-            }
-            else
-            {
-                RecentDocuments = allDocs.Take(5).ToList();
-            }
 
-            var sessions = await _chatService.GetUserSessionsAsync(user.Id);
-            RecentSessions = sessions.Take(5).ToList();
-            MyChatSessions = sessions.Count();
+                var sessions = await _chatService.GetUserSessionsAsync(user.Id);
+                RecentSessions = sessions.Take(5).ToList();
+                MyChatSessions = sessions.Count();
+            }
+            else if (isAdmin)
+            {
+                MyDocumentCount = allDocs.Count();
+                RecentDocuments = allDocs.Take(5).ToList();
+
+                RecentSessions = await _context.ChatSessions
+                    .Include(s => s.Course)
+                    .Include(s => s.User)
+                    .OrderByDescending(s => s.UpdatedAt)
+                    .Take(5)
+                    .ToListAsync();
+                MyChatSessions = await _context.ChatSessions.CountAsync();
+            }
+            else // Student
+            {
+                var studentCourseIds = await _context.ChatSessions
+                    .Where(s => s.UserId == user.Id && s.CourseId.HasValue)
+                    .Select(s => s.CourseId!.Value)
+                    .Union(_context.QuizAttempts
+                        .Where(a => a.UserId == user.Id)
+                        .Select(a => a.Quiz.CourseId))
+                    .Distinct()
+                    .ToListAsync();
+
+                var myDocs = allDocs.Where(d => studentCourseIds.Contains(d.CourseId)).ToList();
+                MyDocumentCount = myDocs.Count;
+                RecentDocuments = myDocs.Take(5).ToList();
+
+                var sessions = await _chatService.GetUserSessionsAsync(user.Id);
+                RecentSessions = sessions.Take(5).ToList();
+                MyChatSessions = sessions.Count();
+            }
 
             var attempts = (await _quizService.GetUserCompletedAttemptsAsync(user.Id)).ToList();
             MyQuizAttempts = attempts.Count;

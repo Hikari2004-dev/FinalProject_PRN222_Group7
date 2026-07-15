@@ -34,12 +34,12 @@ namespace FinalProject_PRN222_Group7.Pages.Chat
         public string UserRole { get; set; } = "Student";
         public int RemainingQueries { get; set; }
 
-        public async Task OnGetAsync(int? sessionId = null)
+        public async Task<IActionResult> OnGetAsync(int? sessionId = null)
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
             {
-                return;
+                return RedirectToPage("/Auth/Login");
             }
 
             var roles = await _userManager.GetRolesAsync(user);
@@ -47,16 +47,37 @@ namespace FinalProject_PRN222_Group7.Pages.Chat
             UserRole = roles.FirstOrDefault() ?? "Student";
             UserInitials = string.Join("", (user.FullName ?? "U").Split(' ').Select(n => n[0]).Take(2)).ToUpper();
 
+            // Danh sách phiên chat ở sidebar luôn chỉ hiển thị các phiên chat của chính người dùng đăng nhập
             Sessions = await _chatService.GetUserSessionsAsync(user.Id);
+
             Courses = await _courseService.GetAllCoursesAsync();
 
             if (sessionId.HasValue)
             {
-                ActiveSession = await _chatService.GetSessionAsync(sessionId.Value);
-                ActiveSessionId = sessionId;
+                var session = await _chatService.GetSessionAsync(sessionId.Value);
+                if (session != null)
+                {
+                    var isOwner = session.UserId == user.Id;
+                    var isAdmin = User.IsInRole("Admin");
+
+                    if (isOwner || isAdmin)
+                    {
+                        ActiveSession = session;
+                        ActiveSessionId = sessionId;
+                    }
+                    else
+                    {
+                        return RedirectToPage("/Chat/Index");
+                    }
+                }
+                else
+                {
+                    return RedirectToPage("/Chat/Index");
+                }
             }
 
             RemainingQueries = await _walletService.GetAvailableCreditsAsync(user.Id, roles);
+            return Page();
         }
 
         public async Task<IActionResult> OnPostDeleteSessionAsync(int sessionId)

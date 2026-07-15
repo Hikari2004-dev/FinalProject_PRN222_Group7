@@ -17,7 +17,12 @@ namespace FinalProject_PRN222_Group7
 
             // ── Database ──────────────────────────────────────────────────────
             builder.Services.AddDbContext<AppDbContext>(options =>
-                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+                options.UseSqlServer(
+                    builder.Configuration.GetConnectionString("DefaultConnection"),
+                    sqlOptions => sqlOptions.EnableRetryOnFailure(
+                        maxRetryCount: 5,
+                        maxRetryDelay: TimeSpan.FromSeconds(30),
+                        errorNumbersToAdd: null)));
 
             // ── Identity ──────────────────────────────────────────────────────
             builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
@@ -52,6 +57,7 @@ namespace FinalProject_PRN222_Group7
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddScoped<ISeedDataService, SeedDataService>();
             builder.Services.AddScoped<IBenchmarkService, BenchmarkService>();
+            builder.Services.AddScoped<IUserService, UserService>();
 
             // ── PayOS ─────────────────────────────────────────────────────
             var payOSClientId = builder.Configuration["PayOS:ClientId"] ?? "";
