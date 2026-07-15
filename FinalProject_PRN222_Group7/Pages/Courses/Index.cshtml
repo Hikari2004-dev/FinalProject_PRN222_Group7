@@ -275,7 +275,7 @@
                             "size": @d.FileSizeBytes,
                             "status": "@d.Status",
                             "chapterId": @(d.ChapterId.HasValue ? d.ChapterId.Value.ToString() : "null"),
-                            "uploadedAt": "@(d.IndexedAt.HasValue ? d.IndexedAt.Value.ToString("dd/MM/yyyy HH:mm") : d.UploadedAt.ToString("dd/MM/yyyy HH:mm"))"
+                            "uploadedAt": "@(d.IndexedAt.HasValue ? d.IndexedAt.Value.AddHours(7).ToString("dd/MM/yyyy HH:mm") : d.UploadedAt.AddHours(7).ToString("dd/MM/yyyy HH:mm"))"
                         },</text>
                     }
                 ]

@@ -58,9 +58,18 @@
 
 <!-- Users Table -->
 <div class="card" style="margin-bottom:20px">
-    <div class="card-header">
-        <span class="card-title">Người dùng gần đây</span>
-        <span class="badge badge-accent">@Model.RecentUsers.Count() người</span>
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div style="display:flex;align-items:center;gap:12px">
+            <span class="card-title">Người dùng gần đây</span>
+            <span class="badge badge-accent" id="userCountBadge">@Model.RecentUsers.Count() người</span>
+        </div>
+        <!-- Quick Filter Tab Buttons -->
+        <div class="filter-tabs" style="display:flex;gap:6px">
+            <button type="button" class="btn btn-primary btn-sm" onclick="filterUserList('All', this)" style="padding:4px 12px;font-size:0.78rem;border-radius:var(--radius-sm)">Tất cả</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="filterUserList('Student', this)" style="padding:4px 12px;font-size:0.78rem;border-radius:var(--radius-sm)">Học viên</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="filterUserList('Lecturer', this)" style="padding:4px 12px;font-size:0.78rem;border-radius:var(--radius-sm)">Giảng viên</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="filterUserList('Admin', this)" style="padding:4px 12px;font-size:0.78rem;border-radius:var(--radius-sm)">Admin</button>
+        </div>
     </div>
     <div class="table-wrapper">
         <table>
@@ -70,7 +79,10 @@
             <tbody>
                 @foreach (var u in Model.RecentUsers)
                 {
-                    <tr>
+                    var role = Model.UserRoles.TryGetValue(u.Id, out var r) ? r : "Unknown";
+                    var roleClass = role == "Admin" ? "badge-danger" : role == "Lecturer" ? "badge-warning" : "badge-muted";
+                    
+                    <tr class="user-row" data-user-role="@role">
                         <td>
                             <div style="display:flex;align-items:center;gap:10px">
                                 <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:#fff;flex-shrink:0">
@@ -81,16 +93,37 @@
                         </td>
                         <td>@u.Email</td>
                         <td>
-                            @{
-                                var role = Model.UserRoles.TryGetValue(u.Id, out var r) ? r : "Unknown";
-                                var roleClass = role == "Admin" ? "badge-danger" : role == "Lecturer" ? "badge-warning" : "badge-muted";
-                            }
                             <span class="badge @roleClass">@role</span>
                         </td>
-                        <td><span class="badge badge-accent">@(Model.UserPackages.TryGetValue(u.Id, out var pkg) ? pkg : "Basic")</span></td>
-                        <td style="font-size:0.8rem">@u.CreatedAt.ToString("dd/MM/yyyy")</td>
                         <td>
-                            <button class="btn btn-secondary btn-sm" onclick="openEditUserModal('@u.Id', '@u.FullName', '@role', @(u.IsActive.ToString().ToLower()))">Phân quyền</button>
+                            <span class="badge badge-accent">@(Model.UserPackages.TryGetValue(u.Id, out var pkg) ? pkg : "Basic")</span>
+                            @if (role == "Student")
+                            {
+                                <div style="font-size:0.72rem;color:var(--text-secondary);margin-top:4px;display:flex;align-items:center;gap:4px">
+                                    <span>🔋 Còn:</span>
+                                    <strong>@(Model.UserCredits.TryGetValue(u.Id, out var cr) ? cr : 0)</strong>
+                                    <span>credits</span>
+                                </div>
+                            }
+                        </td>
+                        <td style="font-size:0.8rem">@u.CreatedAt.AddHours(7).ToString("dd/MM/yyyy")</td>
+                        <td>
+                            @{
+                                var isSelf = u.Id == User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                                var isOtherAdmin = role == "Admin";
+                            }
+                            @if (isSelf)
+                            {
+                                <span style="font-size:0.75rem;color:var(--text-muted);font-style:italic">Tài khoản của bạn</span>
+                            }
+                            else if (isOtherAdmin)
+                            {
+                                <span style="font-size:0.75rem;color:var(--text-muted);font-style:italic">Quản trị viên khác</span>
+                            }
+                            else
+                            {
+                                <button class="btn btn-secondary btn-sm" onclick="openEditUserModal('@u.Id', '@u.FullName', '@role', @(u.IsActive.ToString().ToLower()))">Phân quyền</button>
+                            }
                         </td>
                     </tr>
                 }
@@ -122,7 +155,7 @@
                                 @p.Status
                             </span>
                         </td>
-                        <td style="font-size:0.8rem">@p.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                        <td style="font-size:0.8rem">@p.CreatedAt.AddHours(7).ToString("dd/MM/yyyy HH:mm")</td>
                     </tr>
                 }
                 @if (!Model.Payments.Any())
@@ -173,26 +206,89 @@
 
 <!-- Bulk Create Users Modal -->
 <div id="bulkModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:520px;box-shadow:var(--shadow-lg)">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-            <h3 style="font-size:1rem;font-weight:700">⚡ Tạo nhanh tài khoản hàng loạt</h3>
+            <h3 style="font-size:1rem;font-weight:700">⚡ Tạo tài khoản hàng loạt</h3>
             <button onclick="document.getElementById('bulkModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
         </div>
-        <form method="post" asp-page-handler="CreateBulk">
-            @Html.AntiForgeryToken()
-            <div style="display:flex;flex-direction:column;gap:16px">
-                <div class="form-group">
-                    <label class="form-label">Nhập danh sách tài khoản (Mỗi dòng 1 tài khoản)</label>
-                    <textarea name="BulkData" class="form-control" rows="8" placeholder="Họ Tên, Email, VaiTrò (Student/Lecturer/Admin)&#10;Ví dụ:&#10;Nguyễn Sinh Viên, sinhvien@domain.com, Student&#10;Trần Giảng Viên, giangvien@domain.com, Lecturer" style="font-family:var(--font-mono);font-size:0.8rem;line-height:1.4" required></textarea>
+
+        <!-- Tab buttons -->
+        <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:12px">
+            <button type="button" onclick="switchTab('tabText')" id="btnTabText" class="btn btn-primary btn-sm">📝 Nhập tay</button>
+            <button type="button" onclick="switchTab('tabFile')" id="btnTabFile" class="btn btn-secondary btn-sm">📂 Import file CSV</button>
+        </div>
+
+        <!-- Tab: Text input -->
+        <div id="tabText">
+            <form method="post" asp-page-handler="CreateBulk">
+                @Html.AntiForgeryToken()
+                <div style="display:flex;flex-direction:column;gap:16px">
+                    <div class="form-group">
+                        <label class="form-label">Chọn vai trò cho danh sách này</label>
+                        <select name="bulkRole" class="form-control" style="margin-bottom: 12px;">
+                            <option value="Student">Sinh viên</option>
+                            <option value="Lecturer">Giảng viên</option>
+                            <option value="Admin">Quản trị viên</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nhập danh sách (mỗi dòng 1 người)</label>
+                        <textarea name="BulkData" class="form-control" rows="8" placeholder="Họ Tên, Email&#10;Ví dụ:&#10;Nguyễn Sinh Viên, sinhvien@domain.com&#10;Trần Sinh Viên, sinhvien2@domain.com" style="font-family:var(--font-mono);font-size:0.8rem;line-height:1.4" required></textarea>
+                    </div>
+                    <div style="font-size:0.75rem;color:var(--text-muted)">
+                        💡 Phân cách các trường bằng dấu phẩy (`,`). Các tài khoản trên dòng sẽ được tạo với cùng vai trò đã chọn ở trên.
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg w-full">Bắt đầu tạo &amp; gửi mail</button>
                 </div>
-                <div style="font-size:0.75rem;color:var(--text-muted)">
-                    💡 Phân cách các trường bằng dấu phẩy (`,`). Mật khẩu ngẫu nhiên sẽ tự động tạo và gửi qua email cho từng người.
+            </form>
+        </div>
+
+        <!-- Tab: File CSV upload -->
+        <div id="tabFile" style="display:none">
+            <form method="post" asp-page-handler="ImportExcel" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+                <div style="display:flex;flex-direction:column;gap:16px">
+                    <div style="background:var(--bg-app);border:1px dashed var(--border);border-radius:var(--radius);padding:16px;font-size:0.8rem;color:var(--text-muted)">
+                        <strong>Định dạng file CSV:</strong><br/>
+                        Dòng 1: <code>HoTen,Email,VaiTro</code> (tiêu đề — bắt buộc)<br/>
+                        Từ dòng 2: dữ liệu người dùng, phân cách bằng dấu phẩy.
+                    </div>
+                    <a asp-page-handler="DownloadTemplate" class="btn btn-secondary btn-sm" style="text-align:center;text-decoration:none">
+                        ⬇️ Tải file CSV mẫu
+                    </a>
+                    <div class="form-group">
+                        <label class="form-label">Chọn file CSV</label>
+                        <input type="file" name="excelFile" accept=".csv" class="form-control" required />
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg w-full">Import &amp; gửi mail</button>
                 </div>
-                <button type="submit" class="btn btn-primary btn-lg w-full">Bắt đầu tạo & gửi mail</button>
+            </form>
+        </div>
+
+        <!-- Common Preview Section -->
+        <div id="bulkPreviewSection" style="display:none;margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+            <h4 style="font-size:0.875rem;font-weight:600;margin-bottom:12px;color:var(--text-muted);display:flex;justify-content:space-between;align-items:center;">
+                <span>📋 Xem trước dữ liệu sẽ tạo:</span>
+                <span id="bulkValidationSummary" style="font-size:0.75rem;font-weight:normal;"></span>
+            </h4>
+            <div style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-app);">
+                <table style="width:100%;font-size:0.75rem;border-collapse:collapse;">
+                    <thead>
+                        <tr style="background:var(--bg-card);border-bottom:1px solid var(--border);text-align:left;color:var(--text-muted);">
+                            <th style="padding:8px;width:50px;">Dòng</th>
+                            <th style="padding:8px;">Họ và tên</th>
+                            <th style="padding:8px;">Email</th>
+                            <th style="padding:8px;width:100px;">Vai trò</th>
+                            <th style="padding:8px;width:120px;">Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bulkPreviewBody">
+                    </tbody>
+                </table>
             </div>
-        </form>
+        </div>
     </div>
 </div>
 
@@ -243,48 +339,249 @@
         document.getElementById('editUserModal').style.display = 'flex';
     }
 
-    // Intercept EditUser form submit → show custom confirm
+    let currentTab = 'tabText';
+
+    function switchTab(tabId) {
+        currentTab = tabId;
+        document.getElementById('tabText').style.display = tabId === 'tabText' ? 'block' : 'none';
+        document.getElementById('tabFile').style.display = tabId === 'tabFile' ? 'block' : 'none';
+        document.getElementById('btnTabText').className = tabId === 'tabText' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+        document.getElementById('btnTabFile').className = tabId === 'tabFile' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+        
+        // Reset preview
+        document.getElementById('bulkPreviewSection').style.display = 'none';
+        document.getElementById('bulkPreviewBody').innerHTML = '';
+        document.getElementById('bulkValidationSummary').innerText = '';
+        
+        if (tabId === 'tabText') {
+            updateManualPreview();
+        } else {
+            // Trigger file preview if file is selected
+            const fileInput = document.querySelector('input[name="excelFile"]');
+            if (fileInput.files.length > 0) {
+                updateFilePreview(fileInput.files[0]);
+            }
+        }
+    }
+
+    // Helper: validate email format
+    function isValidEmail(email) {
+        return /^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/.test(email);
+    }
+
+    // Live preview for Manual Input
+    function updateManualPreview() {
+        if (currentTab !== 'tabText') return;
+        const raw = document.querySelector('textarea[name="BulkData"]').value.trim();
+        const role = document.querySelector('select[name="bulkRole"]').value;
+        const previewSection = document.getElementById('bulkPreviewSection');
+        const previewBody = document.getElementById('bulkPreviewBody');
+        const summary = document.getElementById('bulkValidationSummary');
+
+        if (!raw) {
+            previewSection.style.display = 'none';
+            return;
+        }
+
+        previewSection.style.display = 'block';
+        previewBody.innerHTML = '';
+
+        const lines = raw.split('\n');
+        let validCount = 0;
+        let invalidCount = 0;
+
+        lines.forEach((line, index) => {
+            const trimmedLine = line.trim();
+            if (!trimmedLine) return;
+
+            const parts = trimmedLine.split(',').map(p => p.trim());
+            const lineNo = index + 1;
+            let name = parts[0] || '';
+            let email = parts[1] || '';
+            let statusHtml = '';
+            let isRowValid = true;
+
+            if (parts.length < 2) {
+                statusHtml = '<span class="badge badge-danger">Sai định dạng (thiếu email)</span>';
+                isRowValid = false;
+            } else if (!name) {
+                statusHtml = '<span class="badge badge-danger">Thiếu họ tên</span>';
+                isRowValid = false;
+            } else if (!email) {
+                statusHtml = '<span class="badge badge-danger">Thiếu email</span>';
+                isRowValid = false;
+            } else if (!isValidEmail(email)) {
+                statusHtml = '<span class="badge badge-danger">Email không hợp lệ</span>';
+                isRowValid = false;
+            } else {
+                statusHtml = '<span class="badge badge-success">Hợp lệ</span>';
+            }
+
+            if (isRowValid) validCount++; else invalidCount++;
+
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid var(--border)';
+            tr.innerHTML = `
+                <td style="padding:8px;color:var(--text-muted);">${lineNo}</td>
+                <td style="padding:8px;font-weight:600;">${name || '<i style="color:var(--text-muted)">Trống</i>'}</td>
+                <td style="padding:8px;">${email || '<i style="color:var(--text-muted)">Trống</i>'}</td>
+                <td style="padding:8px;"><span class="badge badge-accent">${role}</span></td>
+                <td style="padding:8px;">${statusHtml}</td>
+            `;
+            previewBody.appendChild(tr);
+        });
+
+        summary.innerHTML = `<span style="color:var(--success)">✅ ${validCount} Hợp lệ</span> | <span style="color:var(--danger)">❌ ${invalidCount} Lỗi</span>`;
+    }
+
+    // Live preview for File Upload
+    function updateFilePreview(file) {
+        if (!file) return;
+        const previewSection = document.getElementById('bulkPreviewSection');
+        const previewBody = document.getElementById('bulkPreviewBody');
+        const summary = document.getElementById('bulkValidationSummary');
+
+        previewSection.style.display = 'block';
+        previewBody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--text-muted)">Đang đọc dữ liệu file...</td></tr>';
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const text = e.target.result;
+            const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+            previewBody.innerHTML = '';
+
+            if (lines.length === 0) {
+                previewBody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--danger)">File trống hoặc bị lỗi.</td></tr>';
+                return;
+            }
+
+            // Check headers
+            const headerParts = lines[0].split(',').map(h => h.trim().toLowerCase());
+            const expectedHeaders = ['hoten', 'email', 'vaitro'];
+            const hasCorrectHeader = expectedHeaders.every((h, i) => headerParts[i] === h);
+
+            if (!hasCorrectHeader) {
+                previewBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align:center;padding:16px;color:var(--danger);font-weight:600;">
+                            ❌ Lỗi định dạng dòng tiêu đề (Dòng 1)!<br/>
+                            Yêu cầu đúng thứ tự: <code style="background:var(--bg-app);padding:2px 4px;">HoTen,Email,VaiTro</code>.<br/>
+                            Nội dung hiện tại của bạn: <code style="background:var(--bg-app);padding:2px 4px;">${lines[0]}</code>
+                        </td>
+                    </tr>`;
+                summary.innerHTML = '<span style="color:var(--danger)">❌ Dòng tiêu đề bị lỗi</span>';
+                return;
+            }
+
+            let validCount = 0;
+            let invalidCount = 0;
+
+            for (let i = 1; i < lines.length; i++) {
+                const parts = lines[i].split(',').map(p => p.trim());
+                const lineNo = i + 1;
+                let name = parts[0] || '';
+                let email = parts[1] || '';
+                let role = parts[2] || '';
+                let statusHtml = '';
+                let isRowValid = true;
+
+                if (parts.length < 3) {
+                    statusHtml = '<span class="badge badge-danger">Sai cấu trúc cột</span>';
+                    isRowValid = false;
+                } else if (!name) {
+                    statusHtml = '<span class="badge badge-danger">Thiếu họ tên</span>';
+                    isRowValid = false;
+                } else if (!email) {
+                    statusHtml = '<span class="badge badge-danger">Thiếu email</span>';
+                    isRowValid = false;
+                } else if (!isValidEmail(email)) {
+                    statusHtml = '<span class="badge badge-danger">Email sai định dạng</span>';
+                    isRowValid = false;
+                } else if (!['Student', 'Lecturer', 'Admin'].includes(role)) {
+                    statusHtml = '<span class="badge badge-danger">Vai trò không hợp lệ</span>';
+                    isRowValid = false;
+                } else {
+                    statusHtml = '<span class="badge badge-success">Hợp lệ</span>';
+                }
+
+                if (isRowValid) validCount++; else invalidCount++;
+
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid var(--border)';
+                tr.innerHTML = `
+                    <td style="padding:8px;color:var(--text-muted);">${lineNo}</td>
+                    <td style="padding:8px;font-weight:600;">${name || '<i style="color:var(--text-muted)">Trống</i>'}</td>
+                    <td style="padding:8px;">${email || '<i style="color:var(--text-muted)">Trống</i>'}</td>
+                    <td style="padding:8px;"><span class="badge badge-accent">${role || '<i style="color:var(--text-muted)">Trống</i>'}</span></td>
+                    <td style="padding:8px;">${statusHtml}</td>
+                `;
+                previewBody.appendChild(tr);
+            }
+
+            summary.innerHTML = `<span style="color:var(--success)">✅ ${validCount} Hợp lệ</span> | <span style="color:var(--danger)">❌ ${invalidCount} Lỗi</span>`;
+        };
+        reader.readAsText(file);
+    }
+
+    // Attach listeners
+    document.querySelector('textarea[name="BulkData"]').addEventListener('input', updateManualPreview);
+    document.querySelector('select[name="bulkRole"]').addEventListener('change', updateManualPreview);
+    document.querySelector('input[name="excelFile"]').addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            updateFilePreview(e.target.files[0]);
+        }
+    });
+
+    // EditUser confirm
     document.getElementById('editUserModal').querySelector('form').addEventListener('submit', function(e) {
         e.preventDefault();
         const form = this;
         const fullName = document.getElementById('editUserFullName').value;
         const role = document.getElementById('editUserRole').value;
         const isActive = document.getElementById('editUserIsActive').value === 'true' ? 'Đang hoạt động' : 'Bị vô hiệu hóa';
-        showConfirm(
-            'Xác nhận phân quyền',
-            `Bạn có chắc muốn cập nhật tài khoản "${fullName}" thành vai trò "${role}" và trạng thái "${isActive}"?`,
+        showConfirm('Xác nhận phân quyền',
+            `Cập nhật "${fullName}" thành vai trò "${role}", trạng thái "${isActive}"?`,
             '✏️',
-            () => {
-                const btn = form.querySelector('[type="submit"]');
-                setButtonLoading(btn, 'Đang lưu...');
-                form.submit();
-            },
-            false
-        );
+            () => { const btn = form.querySelector('[type="submit"]'); setButtonLoading(btn, 'Đang lưu...'); form.submit(); },
+            false);
     });
 
-    // Intercept CreateBulk form submit → show custom confirm
-    document.getElementById('bulkModal').querySelector('form').addEventListener('submit', function(e) {
+    // CreateBulk confirm
+    document.getElementById('tabText').querySelector('form').addEventListener('submit', function(e) {
         e.preventDefault();
         const form = this;
-        const raw = form.querySelector('textarea[name="BulkData"]').value.trim();
-        const lines = raw.split('\n').filter(l => l.trim().length > 0);
-        showConfirm(
-            'Xác nhận tạo hàng loạt',
-            `Bạn sắp tạo ${lines.length} tài khoản và gửi mật khẩu qua email cho từng người. Tiếp tục?`,
+        const lines = form.querySelector('textarea[name="BulkData"]').value.trim().split('\n').filter(l => l.trim());
+        showConfirm('Xác nhận tạo hàng loạt',
+            `Tạo ${lines.length} tài khoản và gửi email mật khẩu. Tiếp tục?`,
             '⚡',
-            () => {
-                const btn = form.querySelector('[type="submit"]');
-                setButtonLoading(btn, 'Đang tạo & gửi mail...');
-                form.submit();
-            },
-            false
-        );
+            () => { const btn = form.querySelector('[type="submit"]'); setButtonLoading(btn, 'Đang tạo...'); form.submit(); },
+            false);
     });
 
-    // Prevent double-submit for CreateSingle
+    // CreateSingle prevent double-submit
     document.getElementById('createUserModal').querySelector('form').addEventListener('submit', function() {
-        const btn = this.querySelector('[type="submit"]');
-        setButtonLoading(btn, 'Đang tạo...');
+        setButtonLoading(this.querySelector('[type="submit"]'), 'Đang tạo...');
     });
+
+    function filterUserList(role, btn) {
+        document.querySelectorAll('.filter-tabs .btn').forEach(b => {
+            b.classList.remove('btn-primary');
+            b.classList.add('btn-secondary');
+        });
+        btn.classList.add('btn-primary');
+        btn.classList.remove('btn-secondary');
+        
+        let visibleCount = 0;
+        const rows = document.querySelectorAll('.user-row');
+        rows.forEach(row => {
+            const userRole = row.getAttribute('data-user-role');
+            if (role === 'All' || userRole === role) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        document.getElementById('userCountBadge').innerText = `${visibleCount} người`;
+    }
 </script>

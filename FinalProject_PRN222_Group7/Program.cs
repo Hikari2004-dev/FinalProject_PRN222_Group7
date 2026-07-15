@@ -52,6 +52,7 @@ namespace FinalProject_PRN222_Group7
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddScoped<ISeedDataService, SeedDataService>();
             builder.Services.AddScoped<IBenchmarkService, BenchmarkService>();
+            builder.Services.AddScoped<IUserService, UserService>();
 
             // ── PayOS ─────────────────────────────────────────────────────
             var payOSClientId = builder.Configuration["PayOS:ClientId"] ?? "";

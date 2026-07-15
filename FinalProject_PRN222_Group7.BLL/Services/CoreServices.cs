@@ -2,6 +2,8 @@ using FinalProject_PRN222_Group7.DAL.Data;
 using FinalProject_PRN222_Group7.DAL.Entities;
 using FinalProject_PRN222_Group7.DAL.Repositories;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using System.Net.Http.Json;
 
 namespace FinalProject_PRN222_Group7.BLL.Services
 {
@@ -379,7 +381,10 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         Task DecrementQueryLimitAsync(string userId);
         Task DeleteSessionAsync(int id);
         Task<IEnumerable<ChatMessage>> GetRecentMessagesAsync(int sessionId, int count = 6);
+        Task<ChatAnswerResult> GenerateAnswerAsync(string question, int? courseId, string historyText);
     }
+
+    public record ChatAnswerResult(string Answer, List<string> Citations, int TokensUsed, string? ModelName);
 
     public class ChatService : IChatService
     {
@@ -387,17 +392,38 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         private readonly AppDbContext _context;
         private readonly ISubscriptionService _subscriptionService;
         private readonly ICreditWalletService _walletService;
+        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IConfiguration _configuration;
+
+        private static int _keyIndex = 0;
+        private static readonly object _keyLock = new();
 
         public ChatService(
             IChatRepository repo,
             AppDbContext context,
             ISubscriptionService subscriptionService,
-            ICreditWalletService walletService)
+            ICreditWalletService walletService,
+            IHttpClientFactory httpClientFactory,
+            IConfiguration configuration)
         {
             _repo = repo;
             _context = context;
             _subscriptionService = subscriptionService;
             _walletService = walletService;
+            _httpClientFactory = httpClientFactory;
+            _configuration = configuration;
+        }
+
+        private string GetNextApiKey(List<string> keys)
+        {
+            if (keys == null || !keys.Any()) return string.Empty;
+            lock (_keyLock)
+            {
+                if (_keyIndex >= keys.Count) _keyIndex = 0;
+                var key = keys[_keyIndex];
+                _keyIndex = (_keyIndex + 1) % keys.Count;
+                return key;
+            }
         }
 
         public async Task<IEnumerable<ChatSession>> GetUserSessionsAsync(string userId)
@@ -479,6 +505,88 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                 .OrderByDescending(m => m.Id)
                 .Take(count)
                 .ToListAsync();
+
+        public async Task<ChatAnswerResult> GenerateAnswerAsync(string question, int? courseId, string historyText)
+        {
+            var dbChunks = courseId.HasValue
+                ? await _context.DocumentChunks
+                    .Include(c => c.Document)
+                    .Where(c => c.Document.CourseId == courseId.Value && c.Document.Status == DocumentStatus.Indexed)
+                    .ToListAsync()
+                : new List<DocumentChunk>();
+
+            var keywords = question.ToLower()
+                .Split(new[] { ' ', '?', ',', '.', '!', '-', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+                .Where(w => w.Length > 2).Distinct().ToList();
+
+            var matched = dbChunks
+                .Select(c => new { Chunk = c, Score = keywords.Count(k => c.Content.ToLower().Contains(k)) })
+                .Where(x => x.Score > 0)
+                .OrderByDescending(x => x.Score)
+                .Take(4)
+                .Select(x => x.Chunk)
+                .ToList();
+
+            if (!matched.Any()) matched = dbChunks.Take(2).ToList();
+
+            var contextText = string.Join("\n\n", matched.Select(c => $"[{c.Document.OriginalName}]: {c.Content}"));
+            var citations = matched.Select(c => c.Document.OriginalName).Distinct().ToList();
+            if (!citations.Any()) citations.Add("Kiến thức nền tảng hệ thống");
+
+            var geminiSection = _configuration.GetSection("Gemini");
+            var apiKeys = geminiSection.GetSection("ApiKeys").Get<List<string>>() ?? new List<string>();
+            var model = geminiSection.GetValue<string>("Model") ?? "gemini-2.0-flash";
+
+            if (!apiKeys.Any())
+                return new ChatAnswerResult("Chưa cấu hình API Key.", citations, 0, null);
+
+            var client = _httpClientFactory.CreateClient();
+            var retries = 0;
+            var lastError = string.Empty;
+
+            while (retries < apiKeys.Count)
+            {
+                var apiKey = GetNextApiKey(apiKeys);
+                if (string.IsNullOrEmpty(apiKey) || apiKey.Contains("YOUR-")) { retries++; continue; }
+
+                var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
+                var prompt = $"Bạn là trợ lý học tập LMS AI chuyên nghiệp.\n" +
+                             $"Lịch sử hội thoại:\n---\n{historyText}\n---\n\n" +
+                             $"Ngữ cảnh tài liệu:\n---\n{contextText}\n---\n\n" +
+                             $"Câu hỏi: \"{question}\"\n\n" +
+                             "Trả lời bằng Markdown thân thiện, dựa trên tài liệu nếu có liên quan.";
+
+                var payload = new { contents = new[] { new { parts = new[] { new { text = prompt } } } } };
+
+                try
+                {
+                    var response = await client.PostAsJsonAsync(url, payload);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var result = await response.Content.ReadFromJsonAsync<GeminiResponse>();
+                        var text = result?.Candidates?.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text;
+                        if (!string.IsNullOrEmpty(text))
+                        {
+                            var tokens = question.Length / 4 + text.Length / 4;
+                            return new ChatAnswerResult(text, citations, tokens, model);
+                        }
+                    }
+                    lastError = $"HTTP {response.StatusCode}";
+                    retries++;
+                }
+                catch (Exception ex) { lastError = ex.Message; retries++; }
+            }
+
+            return new ChatAnswerResult($"Lỗi kết nối AI: {lastError}", citations, 0, null);
+        }
+
+        private class GeminiResponse
+        {
+            public List<GeminiCandidate>? Candidates { get; set; }
+        }
+        private class GeminiCandidate { public GeminiContent? Content { get; set; } }
+        private class GeminiContent { public List<GeminiPart>? Parts { get; set; } }
+        private class GeminiPart { public string? Text { get; set; } }
     }
 
     // ============ CHAPTER SERVICE ============
