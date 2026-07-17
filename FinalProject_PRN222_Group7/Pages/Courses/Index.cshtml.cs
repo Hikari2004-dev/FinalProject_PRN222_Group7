@@ -57,11 +57,6 @@ namespace FinalProject_PRN222_Group7.Pages.Courses
             var isLecturer = User.IsInRole("Lecturer");
             var isAdmin = User.IsInRole("Admin");
 
-            if (!isLecturer && !isAdmin)
-            {
-                return RedirectToPage("/Dashboard/Index");
-            }
-
             if (isLecturer)
             {
                 Courses = await _courseService.GetAllCoursesAsync(lecturerId: user.Id);
@@ -281,6 +276,32 @@ namespace FinalProject_PRN222_Group7.Pages.Courses
                 }
             }
             return RedirectToPage();
+        }
+
+        public async Task<IActionResult> OnGetDownloadDocumentAsync(int docId)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return RedirectToPage("/Auth/Login");
+
+            var doc = await _docService.GetDocumentAsync(docId);
+            if (doc == null) return NotFound();
+
+            if (User.IsInRole("Lecturer") && doc.Course.LecturerId != user.Id)
+            {
+                return Forbid();
+            }
+
+            if (string.IsNullOrWhiteSpace(doc.FilePath) || !System.IO.File.Exists(doc.FilePath))
+            {
+                TempData["Error"] = "Không tìm thấy file gốc trên máy chủ.";
+                return RedirectToPage();
+            }
+
+            var contentType = string.IsNullOrWhiteSpace(doc.ContentType)
+                ? "application/octet-stream"
+                : doc.ContentType;
+
+            return PhysicalFile(doc.FilePath, contentType, doc.OriginalName);
         }
 
         public async Task<IActionResult> OnPostAddChapterAsync(int courseId, string name, string? description)

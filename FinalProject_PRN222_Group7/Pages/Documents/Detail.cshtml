@@ -21,6 +21,7 @@
     </div>
     <div style="display:flex;gap:10px">
         <a href="/Courses" class="btn btn-secondary">Quay lại</a>
+        <a asp-page-handler="Download" asp-route-id="@Model.Doc.Id" class="btn btn-secondary" style="background:var(--success-muted);color:var(--success);border:1px solid rgba(16,185,129,0.25)">Tải file gốc</a>
         @if (User.IsInRole("Lecturer") || User.IsInRole("Admin"))
         {
             <form method="post" asp-page-handler="Reindex" asp-route-id="@Model.Doc.Id" id="reindexDocForm" style="display:inline">

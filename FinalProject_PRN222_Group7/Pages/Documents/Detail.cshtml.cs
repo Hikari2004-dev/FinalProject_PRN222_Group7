@@ -60,6 +60,32 @@ namespace FinalProject_PRN222_Group7.Pages.Documents
             return Page();
         }
 
+        public async Task<IActionResult> OnGetDownloadAsync(int id)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return RedirectToPage("/Auth/Login");
+
+            var doc = await _docService.GetDocumentAsync(id);
+            if (doc == null) return NotFound();
+
+            if (User.IsInRole("Lecturer") && doc.Course.LecturerId != user.Id)
+            {
+                return Forbid();
+            }
+
+            if (string.IsNullOrWhiteSpace(doc.FilePath) || !System.IO.File.Exists(doc.FilePath))
+            {
+                TempData["Error"] = "Không tìm thấy file gốc trên máy chủ.";
+                return RedirectToPage(new { id });
+            }
+
+            var contentType = string.IsNullOrWhiteSpace(doc.ContentType)
+                ? "application/octet-stream"
+                : doc.ContentType;
+
+            return PhysicalFile(doc.FilePath, contentType, doc.OriginalName);
+        }
+
         public async Task<IActionResult> OnPostDeleteAsync(int id)
         {
             var user = await _userManager.GetUserAsync(User);

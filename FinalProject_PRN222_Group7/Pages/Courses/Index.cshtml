@@ -352,6 +352,7 @@
                 <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
                     <span class="badge ${statusClass}" style="font-size:0.65rem;padding:2px 6px;">${doc.status}</span>
                     <a href="/Documents/Detail/${doc.id}" class="btn btn-secondary btn-sm" style="padding:3px 6px;font-size:0.68rem;height:auto;line-height:1;">Đọc</a>
+                    <a href="/Courses?handler=DownloadDocument&docId=${doc.id}" class="btn btn-secondary btn-sm" style="padding:3px 6px;font-size:0.68rem;height:auto;line-height:1;background:var(--success-muted);color:var(--success);border:1px solid rgba(16,185,129,0.25)">Tải file gốc</a>
                     
                     ${canManage ? `
                     <form method="post" action="?handler=ReindexDocument" id="reindexDocForm-${doc.id}" style="display:inline;" onsubmit="return false;">
