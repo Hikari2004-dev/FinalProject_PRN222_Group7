@@ -1,11 +1,13 @@
 using FinalProject_PRN222_Group7.BLL.Services;
 using FinalProject_PRN222_Group7.DAL.Data;
 using FinalProject_PRN222_Group7.DAL.Entities;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -15,11 +17,16 @@ namespace FinalProject_PRN222_Group7.Pages.Documents
     {
         private readonly IDocumentService _docService;
         private readonly UserManager<AppUser> _userManager;
+        private readonly IWebHostEnvironment _env;
 
-        public DetailModel(IDocumentService docService, UserManager<AppUser> userManager)
+        public DetailModel(
+            IDocumentService docService,
+            UserManager<AppUser> userManager,
+            IWebHostEnvironment env)
         {
             _docService = docService;
             _userManager = userManager;
+            _env = env;
         }
 
         public Document? Doc { get; set; }
@@ -73,7 +80,8 @@ namespace FinalProject_PRN222_Group7.Pages.Documents
                 return Forbid();
             }
 
-            if (string.IsNullOrWhiteSpace(doc.FilePath) || !System.IO.File.Exists(doc.FilePath))
+            var filePath = ResolveDocumentFilePath(doc);
+            if (filePath == null)
             {
                 TempData["Error"] = "Không tìm thấy file gốc trên máy chủ.";
                 return RedirectToPage(new { id });
@@ -83,7 +91,7 @@ namespace FinalProject_PRN222_Group7.Pages.Documents
                 ? "application/octet-stream"
                 : doc.ContentType;
 
-            return PhysicalFile(doc.FilePath, contentType, doc.OriginalName);
+            return PhysicalFile(filePath, contentType, doc.OriginalName);
         }
 
         public async Task<IActionResult> OnPostDeleteAsync(int id)
@@ -114,11 +122,37 @@ namespace FinalProject_PRN222_Group7.Pages.Documents
                 var isAdmin = User.IsInRole("Admin");
                 if (isAdmin || doc.Course.LecturerId == user.Id)
                 {
-                    await _docService.ProcessLocalDocumentAsync(id, doc.FilePath);
+                    var filePath = ResolveDocumentFilePath(doc);
+                    if (filePath == null)
+                    {
+                        TempData["Error"] = "Không tìm thấy file gốc trên máy chủ.";
+                        return RedirectToPage(new { id });
+                    }
+
+                    await _docService.ProcessLocalDocumentAsync(id, filePath);
                     TempData["Success"] = "Đã thực hiện phân mảnh và lập chỉ mục lại thành công!";
                 }
             }
             return RedirectToPage(new { id });
+        }
+
+        private string? ResolveDocumentFilePath(Document doc)
+        {
+            if (!string.IsNullOrWhiteSpace(doc.FilePath) && System.IO.File.Exists(doc.FilePath))
+            {
+                return doc.FilePath;
+            }
+
+            if (!string.IsNullOrWhiteSpace(doc.FileName))
+            {
+                var uploadPath = Path.Combine(_env.WebRootPath, "uploads", doc.FileName);
+                if (System.IO.File.Exists(uploadPath))
+                {
+                    return uploadPath;
+                }
+            }
+
+            return null;
         }
     }
 }
