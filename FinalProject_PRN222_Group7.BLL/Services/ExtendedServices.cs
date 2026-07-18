@@ -729,7 +729,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
             {
                 foreach (var p in expiredPayments)
                 {
-                    p.Status = PaymentStatus.Cancelled;
+                    p.Status = PaymentStatus.Expired;
                     p.UpdatedAt = DateTime.UtcNow;
                 }
                 await _context.SaveChangesAsync();
