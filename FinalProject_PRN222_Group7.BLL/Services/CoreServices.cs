@@ -568,7 +568,12 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                              $"Lịch sử hội thoại:\n---\n{historyText}\n---\n\n" +
                              $"Ngữ cảnh tài liệu:\n---\n{contextText}\n---\n\n" +
                              $"Câu hỏi: \"{question}\"\n\n" +
-                             "Trả lời bằng Markdown thân thiện, dựa trên tài liệu nếu có liên quan.";
+                             "Quy định ngôn ngữ câu trả lời:\n" +
+                             "1. Hãy nhận biết ngôn ngữ của phần 'Ngữ cảnh tài liệu' ở trên.\n" +
+                             "2. Nếu tài liệu bằng tiếng Anh (English), bạn bắt buộc phải trả lời hoàn toàn bằng tiếng Anh.\n" +
+                             "3. Nếu tài liệu bằng tiếng Việt, bạn bắt buộc phải trả lời hoàn toàn bằng tiếng Việt.\n" +
+                             "4. Nếu câu hỏi không liên quan đến ngữ cảnh tài liệu, hãy trả lời bằng ngôn ngữ của câu hỏi mà người dùng vừa nhập.\n\n" +
+                             "Hãy trả lời ngắn gọn, chính xác bằng Markdown thân thiện.";
 
                 var payload = new { contents = new[] { new { parts = new[] { new { text = prompt } } } } };
 

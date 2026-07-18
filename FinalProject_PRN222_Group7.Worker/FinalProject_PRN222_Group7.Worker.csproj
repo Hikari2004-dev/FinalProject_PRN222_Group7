@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-FinalProject_PRN222_Group7.Worker-01b0833c-eb6e-4252-8671-c52006703630</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FinalProject_PRN222_Group7.BLL\FinalProject_PRN222_Group7.BLL.csproj" />
+    <ProjectReference Include="..\FinalProject_PRN222_Group7.DAL\FinalProject_PRN222_Group7.DAL.csproj" />
+  </ItemGroup>
+</Project>

@@ -97,7 +97,7 @@
 
             <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
                 <select id="courseSelector" class="form-control" style="width:160px;font-size:0.78rem;padding:6px 10px" @(Model.ActiveSessionId.HasValue ? "disabled" : "")>
-                    <option value="">Tất cả tài liệu</option>
+                    <option value="">-- Chọn môn học --</option>
                     @foreach (var c in Model.Courses)
                     {
                         <option value="@c.Id" selected="@(Model.ActiveSession?.CourseId == c.Id)">@c.Name</option>
@@ -215,6 +215,12 @@
         }
 
         async function sendMessage() {
+            var courseId = document.getElementById('courseSelector').value;
+            if (!courseId) {
+                showAlert('Chưa chọn môn học', 'Vui lòng chọn môn học trước khi bắt đầu chat!', '⚠️');
+                return;
+            }
+
             var input = document.getElementById('chatInput');
             var msg = input.value.trim();
             if (!msg) return;

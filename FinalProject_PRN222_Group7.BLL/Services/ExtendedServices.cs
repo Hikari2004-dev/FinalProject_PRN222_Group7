@@ -729,7 +729,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
             {
                 foreach (var p in expiredPayments)
                 {
-                    p.Status = PaymentStatus.Cancelled;
+                    p.Status = PaymentStatus.Expired;
                     p.UpdatedAt = DateTime.UtcNow;
                 }
                 await _context.SaveChangesAsync();
@@ -904,18 +904,38 @@ namespace FinalProject_PRN222_Group7.BLL.Services
 
     public class EmailService : IEmailService
     {
+        private readonly IConfiguration _configuration;
+
+        public EmailService(IConfiguration configuration)
+        {
+            _configuration = configuration;
+        }
+
         public async Task SendEmailAsync(string toEmail, string subject, string body)
         {
+            var emailSettings = _configuration.GetSection("EmailSettings");
+            var smtpServer = emailSettings.GetValue<string>("SmtpServer") ?? "smtp.gmail.com";
+            var port = emailSettings.GetValue<int>("Port", 587);
+            var senderEmail = emailSettings.GetValue<string>("SenderEmail");
+            var senderName = emailSettings.GetValue<string>("SenderName") ?? "LMS AI System";
+            var password = emailSettings.GetValue<string>("Password");
+            var enableSsl = emailSettings.GetValue<bool>("EnableSsl", true);
+
+            if (string.IsNullOrEmpty(senderEmail) || string.IsNullOrEmpty(password))
+            {
+                throw new InvalidOperationException("Email settings (SenderEmail/Password) are not configured in appsettings.json.");
+            }
+
             using var message = new System.Net.Mail.MailMessage();
-            message.From = new System.Net.Mail.MailAddress("vinhmtse180031@fpt.edu.vn", "LMS AI System");
+            message.From = new System.Net.Mail.MailAddress(senderEmail, senderName);
             message.To.Add(new System.Net.Mail.MailAddress(toEmail));
             message.Subject = subject;
             message.Body = body;
             message.IsBodyHtml = true;
 
-            using var smtp = new System.Net.Mail.SmtpClient("smtp.gmail.com", 587);
-            smtp.Credentials = new System.Net.NetworkCredential("vinhmtse180031@fpt.edu.vn", "xwhb ekqi mmhe ceas");
-            smtp.EnableSsl = true;
+            using var smtp = new System.Net.Mail.SmtpClient(smtpServer, port);
+            smtp.Credentials = new System.Net.NetworkCredential(senderEmail, password);
+            smtp.EnableSsl = enableSsl;
             await smtp.SendMailAsync(message);
         }
     }

@@ -57,11 +57,6 @@ namespace FinalProject_PRN222_Group7.Pages.Courses
             var isLecturer = User.IsInRole("Lecturer");
             var isAdmin = User.IsInRole("Admin");
 
-            if (!isLecturer && !isAdmin)
-            {
-                return RedirectToPage("/Dashboard/Index");
-            }
-
             if (isLecturer)
             {
                 Courses = await _courseService.GetAllCoursesAsync(lecturerId: user.Id);
@@ -268,7 +263,14 @@ namespace FinalProject_PRN222_Group7.Pages.Courses
                 var isAdmin = User.IsInRole("Admin");
                 if (isAdmin || (User.IsInRole("Lecturer") && doc.Course.LecturerId == user.Id))
                 {
-                    await _docService.ProcessLocalDocumentAsync(docId, doc.FilePath);
+                    var filePath = ResolveDocumentFilePath(doc);
+                    if (filePath == null)
+                    {
+                        TempData["Error"] = "Không tìm thấy file gốc trên máy chủ.";
+                        return RedirectToPage();
+                    }
+
+                    await _docService.ProcessLocalDocumentAsync(docId, filePath);
 
                     // Bắn tín hiệu cập nhật thời gian thực
                     await _hubContext.Clients.All.SendAsync("ReceiveCourseUpdate");
@@ -281,6 +283,52 @@ namespace FinalProject_PRN222_Group7.Pages.Courses
                 }
             }
             return RedirectToPage();
+        }
+
+        public async Task<IActionResult> OnGetDownloadDocumentAsync(int docId)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return RedirectToPage("/Auth/Login");
+
+            var doc = await _docService.GetDocumentAsync(docId);
+            if (doc == null) return NotFound();
+
+            if (User.IsInRole("Lecturer") && doc.Course.LecturerId != user.Id)
+            {
+                return Forbid();
+            }
+
+            var filePath = ResolveDocumentFilePath(doc);
+            if (filePath == null)
+            {
+                TempData["Error"] = "Không tìm thấy file gốc trên máy chủ.";
+                return RedirectToPage();
+            }
+
+            var contentType = string.IsNullOrWhiteSpace(doc.ContentType)
+                ? "application/octet-stream"
+                : doc.ContentType;
+
+            return PhysicalFile(filePath, contentType, doc.OriginalName);
+        }
+
+        private string? ResolveDocumentFilePath(Document doc)
+        {
+            if (!string.IsNullOrWhiteSpace(doc.FilePath) && System.IO.File.Exists(doc.FilePath))
+            {
+                return doc.FilePath;
+            }
+
+            if (!string.IsNullOrWhiteSpace(doc.FileName))
+            {
+                var uploadPath = Path.Combine(_env.WebRootPath, "uploads", doc.FileName);
+                if (System.IO.File.Exists(uploadPath))
+                {
+                    return uploadPath;
+                }
+            }
+
+            return null;
         }
 
         public async Task<IActionResult> OnPostAddChapterAsync(int courseId, string name, string? description)
