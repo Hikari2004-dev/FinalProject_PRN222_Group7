@@ -21,398 +21,227 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@(ViewData["Title"] != null ? ViewData["Title"] + " - LMS AI" : "LMS AI Platform")</title>
-    <meta name="description" content="Hệ thống học tập thông minh với AI RAG Chatbot" />
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%233b82f6'/><text x='16' y='22' text-anchor='middle' font-size='18' font-weight='bold' fill='white'>L</text></svg>" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%236366f1'/><text x='16' y='22' text-anchor='middle' font-size='18' font-weight='bold' fill='white'>L</text></svg>" />
     @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
-<div class="app-shell">
 
-    <!-- ── Sidebar ──────────────────────────────────────────────── -->
-    <aside class="sidebar" id="sidebar">
+<!-- ═══════════════════════════════════════════════════════════════════════
+     LAYOUT: FULL WIDTH - TOPBAR WITH TABS (NO SIDEBAR)
+════════════════════════════════════════════════════════════════════════ -->
 
+<div class="lms-app">
+
+    <!-- ── Top Header (Logo + Tabs + User) ─────────────────────────── -->
+    <header class="lms-topbar">
+        
         <!-- Logo -->
-        <div class="sidebar-logo">
-            <div class="sidebar-logo-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+        <a href="/Dashboard" class="topbar-brand">
+            <div class="topbar-brand-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
                     <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                 </svg>
             </div>
-            <span class="sidebar-logo-text">LMS&nbsp;AI</span>
-        </div>
+            <span class="topbar-brand-text">LMS AI</span>
+        </a>
 
-        <!-- Navigation -->
-        <nav class="sidebar-nav">
-
-            <div class="nav-section-label">Tổng quan</div>
-            <a href="/Dashboard" class="nav-item @(currentPage.StartsWith("/Dashboard") ? "active" : "")">
-                <span class="nav-item-icon">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-                </span>
-                <span class="nav-item-text">Dashboard</span>
+        <!-- Navigation Tabs -->
+        <nav class="topbar-tabs">
+            <a href="/Dashboard" class="topbar-tab @(currentPage.StartsWith("/Dashboard") ? "active" : "")">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+                Dashboard
             </a>
-
-            <div class="nav-section-label">Học tập</div>
-            <a href="/Chat" class="nav-item @(currentPage.StartsWith("/Chat") ? "active" : "")">
-                <span class="nav-item-icon">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-                </span>
-                <span class="nav-item-text">AI Chatbot</span>
+            
+            <a href="/Chat" class="topbar-tab @(currentPage.StartsWith("/Chat") ? "active" : "")">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                AI Chatbot
             </a>
-
-            <a href="/Quiz" class="nav-item @(currentPage.StartsWith("/Quiz") ? "active" : "")">
-                <span class="nav-item-icon">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
-                </span>
-                <span class="nav-item-text">Quiz</span>
+            
+            <a href="/Quiz" class="topbar-tab @(currentPage.StartsWith("/Quiz") ? "active" : "")">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+                Quiz
             </a>
 
             @if (isStudent || isLecturer || isAdmin)
             {
-                <div class="nav-section-label">@(isStudent ? "Học tập" : "Giảng dạy")</div>
-                <a href="/Courses" class="nav-item @(currentPage.StartsWith("/Courses") ? "active" : "")">
-                    <span class="nav-item-icon">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
-                    </span>
-                    <span class="nav-item-text">Môn học</span>
+                <a href="/Courses" class="topbar-tab @(currentPage.StartsWith("/Courses") ? "active" : "")">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+                    Môn học
                 </a>
             }
 
             @if (isAdmin || isLecturer)
             {
-                <div class="nav-section-label">Phân tích</div>
-                <a href="/Benchmark" class="nav-item @(currentPage.StartsWith("/Benchmark") ? "active" : "")">
-                    <span class="nav-item-icon">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
-                    </span>
-                    <span class="nav-item-text">Benchmark</span>
+                <a href="/Benchmark" class="topbar-tab @(currentPage.StartsWith("/Benchmark") ? "active" : "")">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+                    Benchmark
                 </a>
             }
 
-            <div class="nav-section-label">Tài khoản</div>
-            <a href="/Packages" class="nav-item @(currentPage.StartsWith("/Packages") ? "active" : "")">
-                <span class="nav-item-icon">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
-                </span>
-                <span class="nav-item-text">Gói dịch vụ</span>
+            <a href="/Packages" class="topbar-tab @(currentPage.StartsWith("/Packages") ? "active" : "")">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
+                Gói dịch vụ
             </a>
 
             @if (isAdmin)
             {
-                <div class="nav-section-label">Quản trị</div>
-                <a href="/Admin" class="nav-item @(currentPage.StartsWith("/Admin") ? "active" : "")">
-                    <span class="nav-item-icon">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                    </span>
-                    <span class="nav-item-text">Quản trị</span>
+                <a href="/Admin" class="topbar-tab @(currentPage.StartsWith("/Admin") ? "active" : "")">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    Quản trị
                 </a>
             }
-
         </nav>
 
-        <!-- User Card -->
-        <div class="sidebar-footer">
-            <div class="user-card" onclick="window.location='/Auth/Logout'">
-                <div class="user-avatar">@initials</div>
-                <div class="user-info">
-                    <div class="user-name">@(user?.FullName ?? "Guest")</div>
-                    <div class="user-role">@role</div>
-                </div>
-            </div>
-        </div>
-    </aside>
-
-    <!-- ── Main ──────────────────────────────────────────────────── -->
-    <div class="main-content" id="mainContent">
-
-        <!-- Topbar -->
-        <header class="topbar">
-            <button class="topbar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        <!-- User Actions -->
+        <div class="topbar-actions">
+            <button class="topbar-icon-btn" title="Thông báo">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                <span class="topbar-badge"></span>
             </button>
-
-            <div class="topbar-breadcrumb">
-                <span>LMS AI</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-                <span class="current">@(ViewData["Title"] ?? "Dashboard")</span>
-            </div>
-
-            <div class="topbar-actions">
-                <button class="topbar-btn" title="Thông báo">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-                    <span class="topbar-notif-dot"></span>
-                </button>
-                <form method="post" action="/Auth/Logout" style="margin:0">
+            
+            <div class="topbar-user">
+                <div class="topbar-avatar">@initials</div>
+                <div class="topbar-user-info">
+                    <span class="topbar-user-name">@(user?.FullName ?? "Guest")</span>
+                    <span class="topbar-user-role">@role</span>
+                </div>
+                <form method="post" action="/Auth/Logout" style="display:inline">
                     @Html.AntiForgeryToken()
-                    <button type="submit" class="topbar-btn" title="Đăng xuất">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    <button type="submit" class="topbar-logout" title="Đăng xuất">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                     </button>
                 </form>
             </div>
-        </header>
+        </div>
+    </header>
 
-        <!-- Page Content -->
-        <main class="page-content fade-in">
-            @RenderBody()
-        </main>
+    <!-- ── Page Content ─────────────────────────────────────────────── -->
+    <main class="lms-content">
+        @RenderBody()
+    </main>
+</div>
 
-    </div><!-- end main-content -->
+<!-- ═══════════════════════════════════════════════════════════════════════
+     GLOBAL MODALS
+════════════════════════════════════════════════════════════════════════ -->
 
-</div><!-- end app-shell -->
-
-<!-- Sidebar overlay for mobile -->
-<div id="sidebarOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99" onclick="closeSidebar()"></div>
-
-<!-- Global Custom Alert Modal -->
-<div id="globalAlertModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;align-items:center;justify-content:center">
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:26px;width:100%;max-width:400px;box-shadow:var(--shadow-lg);text-align:center;animation: globalModalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)">
-        <div style="font-size:2.8rem;margin-bottom:12px" id="globalAlertIcon">🔔</div>
-        <h3 style="font-size:1.05rem;font-weight:700;color:var(--text-primary);margin-bottom:10px" id="globalAlertTitle">Thông báo</h3>
-        <p style="font-size:0.825rem;color:var(--text-muted);margin-bottom:24px;line-height:1.5" id="globalAlertMessage">Nội dung thông báo.</p>
-        <button type="button" class="btn btn-primary" onclick="closeGlobalAlert()" style="width:100%;font-size:0.8rem;padding:10px 16px;height:auto">Đóng</button>
+<div id="globalAlertModal" class="lms-modal-overlay">
+    <div class="lms-modal-box">
+        <div class="lms-modal-icon" id="globalAlertIcon">🔔</div>
+        <h3 class="lms-modal-title" id="globalAlertTitle">Thông báo</h3>
+        <p class="lms-modal-message" id="globalAlertMessage">Nội dung thông báo.</p>
+        <button type="button" class="btn btn-primary" onclick="closeGlobalAlert()">Đóng</button>
     </div>
 </div>
 
-<!-- Global Custom Confirm Modal -->
-<div id="globalConfirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9998;align-items:center;justify-content:center">
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:26px;width:100%;max-width:420px;box-shadow:var(--shadow-lg);text-align:center;animation: globalModalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)">
-        <div style="font-size:2.8rem;margin-bottom:12px" id="globalConfirmIcon">⚠️</div>
-        <h3 style="font-size:1.05rem;font-weight:700;color:var(--text-primary);margin-bottom:10px" id="globalConfirmTitle">Xác nhận</h3>
-        <p style="font-size:0.825rem;color:var(--text-muted);margin-bottom:24px;line-height:1.5" id="globalConfirmMessage">Bạn có chắc chắn muốn thực hiện hành động này?</p>
-        <div style="display:flex;gap:10px;justify-content:center">
-            <button type="button" class="btn btn-secondary" onclick="closeGlobalConfirm()" style="flex:1;font-size:0.8rem;padding:10px 16px;height:auto">Hủy</button>
-            <button type="button" class="btn" id="globalConfirmSubmitBtn" style="flex:1;font-size:0.8rem;padding:10px 16px;height:auto">Đồng ý</button>
+<div id="globalConfirmModal" class="lms-modal-overlay">
+    <div class="lms-modal-box">
+        <div class="lms-modal-icon" id="globalConfirmIcon">⚠️</div>
+        <h3 class="lms-modal-title" id="globalConfirmTitle">Xác nhận</h3>
+        <p class="lms-modal-message" id="globalConfirmMessage">Bạn có chắc chắn?</p>
+        <div class="lms-modal-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeGlobalConfirm()">Hủy</button>
+            <button type="button" class="btn btn-primary" id="globalConfirmSubmitBtn">Đồng ý</button>
         </div>
     </div>
 </div>
 
-<style>
-    @@keyframes globalModalFadeIn {
-        from { transform: scale(0.96); opacity: 0; }
-        to { transform: scale(1); opacity: 1; }
-    }
-</style>
+<div id="globalToastContainer" class="lms-toast-container"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════════════════════════════ -->
 
 <script>
-    // Global Custom Dialog Handlers
-    let activeGlobalConfirmCallback = null;
+window.showAlert = function(title, message, icon, onClose) {
+    document.getElementById('globalAlertTitle').innerText = title || 'Thông báo';
+    document.getElementById('globalAlertMessage').innerText = message || '';
+    document.getElementById('globalAlertIcon').innerText = icon || '🔔';
+    document.getElementById('globalAlertModal').style.display = 'flex';
+    window._alertOnClose = onClose || null;
+};
 
-    window.showAlert = function(title, message, icon, onClose) {
-        document.getElementById('globalAlertTitle').innerText = title || 'Thông báo';
-        document.getElementById('globalAlertMessage').innerText = message || '';
-        document.getElementById('globalAlertIcon').innerText = icon || '🔔';
-        document.getElementById('globalAlertModal').style.display = 'flex';
-        window._alertOnClose = onClose || null;
-    };
+window.closeGlobalAlert = function() {
+    document.getElementById('globalAlertModal').style.display = 'none';
+    if (window._alertOnClose) { window._alertOnClose(); window._alertOnClose = null; }
+};
 
-    window.closeGlobalAlert = function() {
-        document.getElementById('globalAlertModal').style.display = 'none';
-        if (window._alertOnClose) { window._alertOnClose(); window._alertOnClose = null; }
-    };
+window.showConfirm = function(title, message, icon, onConfirm, isDanger = false) {
+    document.getElementById('globalConfirmTitle').innerText = title || 'Xác nhận';
+    document.getElementById('globalConfirmMessage').innerText = message || '';
+    document.getElementById('globalConfirmIcon').innerText = icon || '⚠️';
+    const submitBtn = document.getElementById('globalConfirmSubmitBtn');
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = 'Đồng ý';
+    submitBtn.className = isDanger ? 'btn btn-danger' : 'btn btn-primary';
+    window._confirmCallback = onConfirm;
+    document.getElementById('globalConfirmModal').style.display = 'flex';
+};
 
-    window.showConfirm = function(title, message, icon, onConfirm, isDanger = false) {
-        document.getElementById('globalConfirmTitle').innerText = title || 'Xác nhận';
-        document.getElementById('globalConfirmMessage').innerText = message || '';
-        document.getElementById('globalConfirmIcon').innerText = icon || '⚠️';
-        
-        const submitBtn = document.getElementById('globalConfirmSubmitBtn');
-        // Reset button state in case previous confirm left it disabled
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = 'Xác nhận';
-        if (isDanger) {
-            submitBtn.className = 'btn btn-danger';
-            submitBtn.style.background = 'var(--danger)';
-            submitBtn.style.border = '1px solid var(--danger)';
-            submitBtn.style.color = '#fff';
-        } else {
-            submitBtn.className = 'btn btn-primary';
-            submitBtn.style.background = 'var(--accent)';
-            submitBtn.style.border = '1px solid var(--accent)';
-            submitBtn.style.color = '#fff';
-        }
+window.closeGlobalConfirm = function() {
+    document.getElementById('globalConfirmModal').style.display = 'none';
+    window._confirmCallback = null;
+};
 
-        activeGlobalConfirmCallback = onConfirm;
-        document.getElementById('globalConfirmModal').style.display = 'flex';
-    };
+document.getElementById('globalConfirmSubmitBtn').addEventListener('click', function() {
+    if (this.disabled) return;
+    this.disabled = true;
+    this.innerHTML = '<span class="btn-spinner"></span>';
+    if (window._confirmCallback) window._confirmCallback();
+    closeGlobalConfirm();
+});
 
-    window.closeGlobalConfirm = function() {
-        document.getElementById('globalConfirmModal').style.display = 'none';
-        activeGlobalConfirmCallback = null;
-    };
+window.setButtonLoading = function(btn, msg) {
+    if (!btn) return;
+    btn._originalHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="btn-spinner"></span>' + (msg || 'Đang xử lý...');
+};
 
-    document.getElementById('globalConfirmSubmitBtn').addEventListener('click', function() {
-        if (this.disabled) return;
-        // Disable button immediately to prevent double-click
-        this.disabled = true;
-        this.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Đang xử lý...</span>';
-        if (activeGlobalConfirmCallback) {
-            activeGlobalConfirmCallback();
-        }
-        closeGlobalConfirm();
+window.resetButton = function(btn) {
+    if (!btn) return;
+    btn.disabled = false;
+    btn.innerHTML = btn._originalHTML || btn.innerText;
+};
+
+window.showToast = function(title, message, icon = '🔔', duration = 8000, actionCallback, actionText) {
+    const container = document.getElementById('globalToastContainer');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = 'lms-toast';
+    let actionBtn = actionCallback ? '<button class="lms-toast-action">' + (actionText || 'Tải lại') + '</button>' : '';
+    toast.innerHTML = '<div class="lms-toast-icon">' + icon + '</div><div class="lms-toast-body"><div class="lms-toast-title">' + title + '</div><div class="lms-toast-message">' + message + '</div>' + actionBtn + '</div><button class="lms-toast-close" onclick="this.parentElement.remove()">✕</button>';
+    if (actionCallback) toast.querySelector('.lms-toast-action').onclick = () => { actionCallback(); toast.remove(); };
+    container.appendChild(toast);
+    setTimeout(() => { toast.classList.add('lms-toast-out'); setTimeout(() => toast.remove(), 300); }, duration);
+};
+
+document.querySelectorAll('textarea[data-autoresize]').forEach(function(el) {
+    el.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 160) + 'px';
     });
-
-    // ─── Prevent Duplicate Submissions ─────────────────────────────────────────
-    // setButtonLoading(btn, msg?) → disables button, shows spinner + msg
-    // resetButton(btn)            → restores original state (on error)
-    window.setButtonLoading = function(btn, msg) {
-        if (!btn) return;
-        btn._originalHTML = btn.innerHTML;
-        btn._originalDisabled = btn.disabled;
-        btn.disabled = true;
-        btn.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation:spin 1s linear infinite;flex-shrink:0"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-            ${msg || 'Đang xử lý...'}
-        </span>`;
-    };
-
-    window.resetButton = function(btn) {
-        if (!btn) return;
-        btn.disabled = btn._originalDisabled || false;
-        btn.innerHTML = btn._originalHTML || btn.innerText;
-    };
+});
 </script>
-
-<!-- Global Toast Notification Container -->
-<div id="globalToastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none;"></div>
-
-<style>
-    #globalToastContainer > div {
-        pointer-events: auto;
-    }
-    @@keyframes toastFadeIn {
-        from { transform: translateY(-10px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
-    }
-</style>
 
 @if (User.Identity?.IsAuthenticated == true)
 {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
     <script>
-        window.showToast = function(title, message, icon = '🔔', duration = 8000, actionCallback = null, actionText = 'Tải lại') {
-            const container = document.getElementById('globalToastContainer');
-            if (!container) return;
-
-            const toast = document.createElement('div');
-            toast.style.background = 'var(--bg-card)';
-            toast.style.border = '1px solid var(--border)';
-            toast.style.borderRadius = 'var(--radius)';
-            toast.style.padding = '12px 16px';
-            toast.style.minWidth = '300px';
-            toast.style.maxWidth = '380px';
-            toast.style.boxShadow = 'var(--shadow-lg)';
-            toast.style.display = 'flex';
-            toast.style.alignItems = 'flex-start';
-            toast.style.gap = '12px';
-            toast.style.animation = 'toastFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
-            toast.style.transition = 'all 0.3s';
-
-            let actionBtnHtml = '';
-            if (actionCallback) {
-                actionBtnHtml = `<button class="btn btn-primary btn-sm" style="margin-top: 8px; padding: 4px 12px; font-size: 0.72rem; font-weight: 600;">${actionText}</button>`;
-            }
-
-            toast.innerHTML = `
-                <div style="font-size: 1.25rem; flex-shrink: 0; line-height: 1;">${icon}</div>
-                <div style="flex: 1;">
-                    <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); margin-bottom: 2px;">${title}</div>
-                    <div style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.4;">${message}</div>
-                    ${actionBtnHtml}
-                </div>
-                <button style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; padding: 0; line-height: 1; margin-left: 8px; margin-top: 2px;" onclick="this.parentElement.remove()">✕</button>
-            `;
-
-            if (actionCallback) {
-                toast.querySelector('button.btn-primary').addEventListener('click', () => {
-                    actionCallback();
-                    toast.remove();
-                });
-            }
-
-            container.appendChild(toast);
-
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateY(-10px)';
-                setTimeout(() => toast.remove(), 300);
-            }, duration);
-        };
-
-        // Initialize Global SignalR connection
-        const lmsConnection = new signalR.HubConnectionBuilder()
-            .withUrl("/lmsHub")
-            .build();
-
-        lmsConnection.on("ReceiveCourseUpdate", () => {
-            const pathname = window.location.pathname.toLowerCase();
-            if (pathname.includes("/courses")) {
-                // If on courses management page, reload immediately to sync data
-                window.location.reload();
-            } else {
-                // Otherwise, show toast notification to avoid interrupting user activity
-                window.showToast(
-                    "Cập nhật môn học",
-                    "Có môn học mới hoặc tài liệu mới vừa được cập nhật hệ thống.",
-                    "📚",
-                    10000,
-                    () => window.location.reload(),
-                    "Tải lại trang"
-                );
-            }
-        });
-
-        lmsConnection.start().catch(err => console.error("SignalR Connection Error: ", err.toString()));
+    const lmsConnection = new signalR.HubConnectionBuilder().withUrl("/lmsHub").build();
+    lmsConnection.on("ReceiveCourseUpdate", () => {
+        if (window.location.pathname.toLowerCase().includes("/courses")) {
+            window.location.reload();
+        } else {
+            window.showToast("Cập nhật môn học", "Có môn học mới vừa được cập nhật.", "📚", 10000, () => window.location.reload(), "Tải lại");
+        }
+    });
+    lmsConnection.start().catch(err => console.error("SignalR Error: ", err));
     </script>
 }
 
-
 @await RenderSectionAsync("Scripts", required: false)
 
-<script>
-(function () {
-    const sidebar = document.getElementById('sidebar');
-    const main = document.getElementById('mainContent');
-    const overlay = document.getElementById('sidebarOverlay');
-    const toggle = document.getElementById('sidebarToggle');
-    const COLLAPSED_KEY = 'sidebar_collapsed';
-
-    // Restore state
-    if (localStorage.getItem(COLLAPSED_KEY) === '1' && window.innerWidth > 1024) {
-        sidebar.classList.add('collapsed');
-        main.classList.add('sidebar-collapsed');
-    }
-
-    toggle.addEventListener('click', function () {
-        if (window.innerWidth <= 1024) {
-            // Mobile: overlay toggle
-            if (sidebar.classList.contains('mobile-open')) {
-                closeSidebar();
-            } else {
-                sidebar.classList.add('mobile-open');
-                overlay.style.display = 'block';
-            }
-        } else {
-            // Desktop: collapse toggle
-            const collapsed = sidebar.classList.toggle('collapsed');
-            main.classList.toggle('sidebar-collapsed', collapsed);
-            localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0');
-        }
-    });
-
-    window.closeSidebar = function () {
-        sidebar.classList.remove('mobile-open');
-        overlay.style.display = 'none';
-    };
-
-    // Auto-resize textarea
-    document.querySelectorAll('textarea[data-autoresize]').forEach(function(el) {
-        el.addEventListener('input', function () {
-            this.style.height = 'auto';
-            this.style.height = Math.min(this.scrollHeight, 160) + 'px';
-        });
-    });
-})();
-</script>
 </body>
 </html>

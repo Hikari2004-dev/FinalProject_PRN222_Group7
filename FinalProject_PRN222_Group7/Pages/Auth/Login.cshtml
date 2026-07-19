@@ -6,35 +6,35 @@
 }
 
 <div class="auth-page">
-    <!-- Left Panel -->
+    <!-- Left Panel - Gradient -->
     <div class="auth-left">
         <div style="position:relative;z-index:1">
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:56px">
-                <div style="width:38px;height:38px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-accent)">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:64px">
+                <div style="width:44px;height:44px;background:rgba(255,255,255,0.2);border-radius:12px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px)">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
                         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                     </svg>
                 </div>
-                <span style="font-size:1.1rem;font-weight:700;color:var(--text-primary)">LMS AI Platform</span>
+                <span style="font-family:var(--font-sans);font-size:1.2rem;font-weight:700;color:white">LMS AI Platform</span>
             </div>
 
-            <h1 style="font-size:2.4rem;font-weight:800;letter-spacing:-0.03em;color:var(--text-primary);line-height:1.2;margin-bottom:16px">
+            <h1 style="font-family:var(--font-sans);font-size:2.75rem;font-weight:800;letter-spacing:-0.04em;color:white;line-height:1.15;margin-bottom:20px">
                 Học thông minh<br>với trợ lý AI
             </h1>
-            <p style="font-size:1rem;color:var(--text-secondary);line-height:1.65;max-width:340px;margin-bottom:40px">
+            <p style="font-size:1.05rem;color:rgba(255,255,255,0.85);line-height:1.7;max-width:360px;margin-bottom:48px">
                 Hỏi bất kỳ câu hỏi nào về tài liệu học tập và nhận câu trả lời chính xác từ AI RAG ngay lập tức.
             </p>
 
-            <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;flex-direction:column;gap:16px">
                 @foreach (var (icon, text) in new[]{
                     ("📄", "Upload & xử lý tài liệu PDF, DOCX tự động"),
                     ("🤖", "Chatbot AI trả lời dựa trên nội dung tài liệu"),
                     ("📊", "Quiz tự sinh, báo cáo tiến độ chi tiết"),
                 })
                 {
-                    <div style="display:flex;align-items:center;gap:12px">
-                        <div style="width:36px;height:36px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">@icon</div>
-                        <span style="font-size:0.875rem;color:var(--text-secondary)">@text</span>
+                    <div style="display:flex;align-items:center;gap:14px">
+                        <div style="width:40px;height:40px;background:rgba(255,255,255,0.15);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">@icon</div>
+                        <span style="font-size:0.9rem;color:rgba(255,255,255,0.9)">@text</span>
                     </div>
                 }
             </div>
@@ -44,9 +44,9 @@
         <div style="position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
             @foreach (var (val, lbl) in new[]{ ("500+", "Tài liệu"), ("12K+", "Câu hỏi AI"), ("98%", "Chính xác") })
             {
-                <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px;text-align:center">
-                    <div style="font-size:1.3rem;font-weight:800;font-family:var(--font-mono);color:var(--text-primary)">@val</div>
-                    <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">@lbl</div>
+                <div style="background:rgba(255,255,255,0.12);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.15);border-radius:16px;padding:18px;text-align:center">
+                    <div style="font-family:var(--font-sans);font-size:1.4rem;font-weight:800;color:white">@val</div>
+                    <div style="font-size:0.75rem;color:rgba(255,255,255,0.7);margin-top:4px">@lbl</div>
                 </div>
             }
         </div>
@@ -60,7 +60,7 @@
 
             @if (Model.ErrorMessage != null)
             {
-                <div style="background:var(--danger-muted);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius);padding:12px 14px;margin-bottom:20px;font-size:0.875rem;color:var(--danger)">
+                <div style="background:var(--danger-light);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius);padding:14px 16px;margin-bottom:20px;font-size:0.9rem;color:var(--danger)">
                     @Model.ErrorMessage
                 </div>
             }
@@ -68,35 +68,35 @@
             <form method="post" id="loginForm">
                 @Html.AntiForgeryToken()
 
-                <div style="display:flex;flex-direction:column;gap:16px;margin-bottom:24px">
+                <div style="display:flex;flex-direction:column;gap:18px;margin-bottom:24px">
                     <div class="form-group">
                         <label class="form-label" for="email">Email</label>
                         <input id="email" type="email" name="Email" class="form-control"
-                               placeholder="ten@@truong.edu.vn" value="@Model.Email" autocomplete="email" required />
+                               placeholder="ten@truong.edu.vn" value="@Model.Email" autocomplete="email" required />
                     </div>
 
                     <div class="form-group">
                         <div style="display:flex;justify-content:space-between;align-items:center">
                             <label class="form-label" for="password">Mật khẩu</label>
-                            <a href="/Auth/ForgotPassword" style="font-size:0.75rem;color:var(--accent)">Quên mật khẩu?</a>
+                            <a href="/Auth/ForgotPassword" style="font-size:0.8rem;color:var(--accent);font-weight:500">Quên mật khẩu?</a>
                         </div>
                         <div style="position:relative">
                             <input id="password" type="password" name="Password" class="form-control"
                                    placeholder="••••••••" autocomplete="current-password" required />
-                            <button type="button" onclick="togglePw()" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;padding:0">
-                                <svg id="pwEye" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            <button type="button" onclick="togglePw()" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center">
+                                <svg id="pwEye" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                             </button>
                         </div>
                     </div>
 
                     <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.875rem;color:var(--text-secondary)">
-                        <input type="checkbox" name="RememberMe" style="width:16px;height:16px;accent-color:var(--accent)" />
+                        <input type="checkbox" name="RememberMe" style="width:18px;height:18px;accent-color:var(--accent)" />
                         Ghi nhớ đăng nhập
                     </label>
                 </div>
 
-                <button type="submit" class="btn btn-primary w-full btn-lg" id="loginBtn">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                <button type="submit" class="btn btn-primary w-full btn-lg" id="loginBtn" style="height:52px;font-size:1rem">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
                     Đăng nhập
                 </button>
             </form>
@@ -106,17 +106,17 @@
             </div>
 
             <!-- Demo credentials -->
-            <div style="margin-top:28px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
-                <div style="font-size:0.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Tài khoản demo</div>
-                <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="margin-top:28px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-xl);padding:18px">
+                <div style="font-family:var(--font-sans);font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px">Tài khoản demo</div>
+                <div style="display:flex;flex-direction:column;gap:8px">
                     @foreach (var (r, e, p) in new[]{ ("Admin", "admin@lms.edu.vn", "Admin@123"), ("Giảng viên", "lecturer@lms.edu.vn", "Lecturer@123"), ("Sinh viên", "student@lms.edu.vn", "Student@123") })
                     {
                         <button type="button" onclick="fillDemo('@e','@p')"
-                                style="display:flex;align-items:center;gap:10px;background:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;cursor:pointer;text-align:left;transition:background 0.15s;color:var(--text-secondary);font-size:0.78rem"
-                                onmouseenter="this.style.background='var(--bg-hover)'"
-                                onmouseleave="this.style.background='none'">
-                            <span style="font-weight:600;color:var(--accent);width:80px">@r</span>
-                            <span style="font-family:var(--font-mono);font-size:0.72rem">@e</span>
+                                style="display:flex;align-items:center;gap:12px;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;cursor:pointer;text-align:left;transition:all 0.15s;color:var(--text-secondary);font-size:0.82rem"
+                                onmouseenter="this.style.borderColor='var(--accent)';this.style.background='var(--accent-light)'"
+                                onmouseleave="this.style.borderColor='var(--border)';this.style.background='var(--bg-surface)'">
+                            <span style="font-weight:700;color:var(--accent);width:84px;font-family:var(--font-sans)">@r</span>
+                            <span style="font-family:var(--font-body);font-size:0.78rem;color:var(--text-muted)">@e</span>
                         </button>
                     }
                 </div>
