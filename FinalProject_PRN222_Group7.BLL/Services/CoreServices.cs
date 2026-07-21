@@ -26,11 +26,13 @@ namespace FinalProject_PRN222_Group7.BLL.Services
     {
         private readonly IDocumentRepository _repo;
         private readonly AppDbContext _context;
+        private readonly IConfiguration _configuration;
 
-        public DocumentService(IDocumentRepository repo, AppDbContext context)
+        public DocumentService(IDocumentRepository repo, AppDbContext context, IConfiguration configuration)
         {
             _repo = repo;
             _context = context;
+            _configuration = configuration;
         }
 
         public async Task<IEnumerable<Document>> GetAllDocumentsAsync(string? userId = null, int? courseId = null, string? lecturerId = null)
@@ -168,8 +170,9 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                     }
                 }
 
-                // Cắt thành các chunk 500 ký tự, bảo toàn từ, từ bị cắt thay bằng !!!!
-                var chunksText = SplitIntoChunks(text, 500);
+                // Cắt thành các chunk theo cấu hình hệ thống (mặc định 500 ký tự), bảo toàn từ
+                var chunkSize = _configuration.GetValue<int>("Gemini:ChunkSize", 500);
+                var chunksText = SplitIntoChunks(text, chunkSize);
 
                 // Xoá chunks cũ nếu có
                 var oldChunks = await _context.DocumentChunks.Where(c => c.DocumentId == docId).ToListAsync();
@@ -541,11 +544,36 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                 .Select(x => x.Chunk)
                 .ToList();
 
+            var isOutOfScope = !matched.Any();
+
             if (!matched.Any()) matched = dbChunks.Take(2).ToList();
+
+            if (isOutOfScope)
+            {
+                try
+                {
+                    var courseName = "Không xác định";
+                    if (courseId.HasValue)
+                    {
+                        var course = await _context.Courses.FindAsync(courseId.Value);
+                        if (course != null) courseName = course.Name;
+                    }
+
+                    var logDir = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "Logs");
+                    System.IO.Directory.CreateDirectory(logDir);
+                    var logFile = System.IO.Path.Combine(logDir, "out_of_scope_questions.log");
+                    var logLine = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Môn học: {courseName} (ID: {courseId}) | Câu hỏi: {question}{Environment.NewLine}";
+                    await System.IO.File.AppendAllTextAsync(logFile, logLine);
+                }
+                catch
+                {
+                    // Bỏ qua lỗi ghi tệp để không làm gián đoạn cuộc hội thoại
+                }
+            }
 
             var contextText = string.Join("\n\n", matched.Select(c => $"[{c.Document.OriginalName}]: {c.Content}"));
             var citations = matched.Select(c => c.Document.OriginalName).Distinct().ToList();
-            if (!citations.Any()) citations.Add("Kiến thức nền tảng hệ thống");
+            if (!citations.Any()) citations.Add("Kiến thức ngoài tài liệu");
 
             var geminiSection = _configuration.GetSection("Gemini");
             var apiKeys = geminiSection.GetSection("ApiKeys").Get<List<string>>() ?? new List<string>();

@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using System.Text;
+using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Hosting;
+using System.IO;
 
 namespace FinalProject_PRN222_Group7.Pages.Admin
 {
@@ -13,17 +16,23 @@ namespace FinalProject_PRN222_Group7.Pages.Admin
         private readonly IPaymentService _paymentService;
         private readonly UserManager<AppUser> _userManager;
         private readonly IUserService _userService;
+        private readonly IConfiguration _configuration;
+        private readonly IWebHostEnvironment _webHostEnvironment;
  
         public IndexModel(
             IReportService reportService,
             IPaymentService paymentService,
             UserManager<AppUser> userManager,
-            IUserService userService)
+            IUserService userService,
+            IConfiguration configuration,
+            IWebHostEnvironment webHostEnvironment)
         {
             _reportService = reportService;
             _paymentService = paymentService;
             _userManager = userManager;
             _userService = userService;
+            _configuration = configuration;
+            _webHostEnvironment = webHostEnvironment;
         }
  
         public DashboardStats Stats { get; set; } = null!;
@@ -32,11 +41,13 @@ namespace FinalProject_PRN222_Group7.Pages.Admin
         public Dictionary<string, string> UserPackages { get; set; } = new();
         public Dictionary<string, int> UserCredits { get; set; } = new();
         public IEnumerable<Payment> Payments { get; set; } = new List<Payment>();
+        public int ChunkSize { get; set; }
  
         public async Task OnGetAsync()
         {
             Stats = await _reportService.GetDashboardStatsAsync();
             Payments = await _paymentService.GetAllPaymentsAsync();
+            ChunkSize = _configuration.GetValue<int>("Gemini:ChunkSize", 500);
  
             RecentUsers = await _reportService.GetRecentUsersAsync(20);
 
@@ -262,6 +273,43 @@ namespace FinalProject_PRN222_Group7.Pages.Admin
             var bytes = bom.Concat(csvBytes).ToArray();
 
             return File(bytes, "text/csv; charset=utf-8", "mau_import_tai_khoan.csv");
+        }
+
+        public async Task<IActionResult> OnPostUpdateChunkSettingsAsync(int chunkSize)
+        {
+            if (chunkSize < 100 || chunkSize > 5000)
+            {
+                TempData["Error"] = "Độ dài phân mảnh phải nằm trong khoảng từ 100 đến 5000 ký tự.";
+                return RedirectToPage();
+            }
+
+            try
+            {
+                var filePath = Path.Combine(_webHostEnvironment.ContentRootPath, "appsettings.json");
+                if (System.IO.File.Exists(filePath))
+                {
+                    var jsonString = await System.IO.File.ReadAllTextAsync(filePath);
+                    var jsonNode = System.Text.Json.Nodes.JsonNode.Parse(jsonString);
+                    if (jsonNode != null)
+                    {
+                        var gemini = jsonNode["Gemini"];
+                        if (gemini == null)
+                        {
+                            gemini = new System.Text.Json.Nodes.JsonObject();
+                            jsonNode["Gemini"] = gemini;
+                        }
+                        gemini["ChunkSize"] = chunkSize;
+                        await System.IO.File.WriteAllTextAsync(filePath, jsonNode.ToString());
+                    }
+                }
+                TempData["Success"] = $"Đã cập nhật cấu hình độ dài phân mảnh tài liệu thành công: {chunkSize} ký tự!";
+            }
+            catch (System.Exception ex)
+            {
+                TempData["Error"] = $"Không thể cập nhật cấu hình: {ex.Message}";
+            }
+
+            return RedirectToPage();
         }
     }
 }
