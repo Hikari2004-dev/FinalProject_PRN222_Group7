@@ -24,13 +24,13 @@
 
 @if (TempData["Success"] != null)
 {
-    <div style="background:var(--success-muted);border:1px solid rgba(16,185,129,0.25);border-radius:var(--radius);padding:12px 14px;margin-bottom:20px;font-size:0.875rem;color:var(--success)">
+    <div style="background:var(--success-light);border:1px solid rgba(16,185,129,0.2);border-radius:var(--radius);padding:14px 16px;margin-bottom:20px;font-size:0.9rem;color:var(--success)">
         @TempData["Success"]
     </div>
 }
 @if (TempData["Error"] != null)
 {
-    <div style="background:var(--danger-muted);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius);padding:12px 14px;margin-bottom:20px;font-size:0.875rem;color:var(--danger)">
+    <div style="background:var(--danger-light);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius);padding:14px 16px;margin-bottom:20px;font-size:0.9rem;color:var(--danger)">
         @TempData["Error"]
     </div>
 }
@@ -38,40 +38,40 @@
 <!-- Admin Stats -->
 <div class="stats-grid" style="margin-bottom:28px">
     <div class="stat-card accent">
-        <div class="stat-icon accent"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+        <div class="stat-icon accent"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div>
         <div class="stat-value">@Model.Stats.TotalUsers</div>
         <div class="stat-label">Tổng người dùng</div>
     </div>
     <div class="stat-card success">
-        <div class="stat-icon success"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg></div>
+        <div class="stat-icon success"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg></div>
         <div class="stat-value">@Model.Stats.TotalRevenue.ToString("N0") đ</div>
         <div class="stat-label">Tổng doanh thu</div>
     </div>
     <div class="stat-card info">
-        <div class="stat-icon info"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg></div>
+        <div class="stat-icon info"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg></div>
         <div class="stat-value">@Model.Stats.TotalDocuments</div>
         <div class="stat-label">Tổng tài liệu</div>
     </div>
     <div class="stat-card warning">
-        <div class="stat-icon warning"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+        <div class="stat-icon warning"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
         <div class="stat-value">@Model.Stats.TotalSessions</div>
         <div class="stat-label">Phiên chat</div>
     </div>
 </div>
 
 <!-- Users Table -->
-<div class="card" style="margin-bottom:20px">
-    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-        <div style="display:flex;align-items:center;gap:12px">
+<div class="card" style="margin-bottom:24px">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+        <div style="display:flex;align-items:center;gap:14px">
             <span class="card-title">Người dùng gần đây</span>
             <span class="badge badge-accent" id="userCountBadge">@Model.RecentUsers.Count() người</span>
         </div>
         <!-- Quick Filter Tab Buttons -->
-        <div class="filter-tabs" style="display:flex;gap:6px">
-            <button type="button" class="btn btn-primary btn-sm" onclick="filterUserList('All', this)" style="padding:4px 12px;font-size:0.78rem;border-radius:var(--radius-sm)">Tất cả</button>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="filterUserList('Student', this)" style="padding:4px 12px;font-size:0.78rem;border-radius:var(--radius-sm)">Học viên</button>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="filterUserList('Lecturer', this)" style="padding:4px 12px;font-size:0.78rem;border-radius:var(--radius-sm)">Giảng viên</button>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="filterUserList('Admin', this)" style="padding:4px 12px;font-size:0.78rem;border-radius:var(--radius-sm)">Admin</button>
+        <div class="filter-tabs">
+            <button type="button" class="btn btn-primary btn-sm" onclick="filterUserList('All', this)" style="padding:6px 14px;font-size:0.8rem;border-radius:6px">Tất cả</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="filterUserList('Student', this)" style="padding:6px 14px;font-size:0.8rem;border-radius:6px">Học viên</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="filterUserList('Lecturer', this)" style="padding:6px 14px;font-size:0.8rem;border-radius:6px">Giảng viên</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="filterUserList('Admin', this)" style="padding:6px 14px;font-size:0.8rem;border-radius:6px">Admin</button>
         </div>
     </div>
     <div class="table-wrapper">
@@ -87,11 +87,11 @@
                     
                     <tr class="user-row" data-user-role="@role">
                         <td>
-                            <div style="display:flex;align-items:center;gap:10px">
-                                <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:#fff;flex-shrink:0">
+                            <div style="display:flex;align-items:center;gap:12px">
+                                <div style="width:36px;height:36px;border-radius:50%;background:var(--gradient-primary);display:flex;align-items:center;justify-content:center;font-size:0.78rem;font-weight:700;color:#fff;flex-shrink:0;box-shadow:0 2px 8px rgba(99,102,241,0.3)">
                                     @(string.Join("", (u.FullName ?? "U").Split(' ').Select(n => n[0]).Take(2)).ToUpper())
                                 </div>
-                                <span class="text-primary">@u.FullName</span>
+                                <span class="text-primary" style="font-weight:600">@u.FullName</span>
                             </div>
                         </td>
                         <td>@u.Email</td>
@@ -102,14 +102,14 @@
                             <span class="badge badge-accent">@(Model.UserPackages.TryGetValue(u.Id, out var pkg) ? pkg : "Basic")</span>
                             @if (role == "Student")
                             {
-                                <div style="font-size:0.72rem;color:var(--text-secondary);margin-top:4px;display:flex;align-items:center;gap:4px">
+                                <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:6px;display:flex;align-items:center;gap:4px">
                                     <span>🔋 Còn:</span>
-                                    <strong>@(Model.UserCredits.TryGetValue(u.Id, out var cr) ? cr : 0)</strong>
+                                    <strong style="color:var(--accent)">@(Model.UserCredits.TryGetValue(u.Id, out var cr) ? cr : 0)</strong>
                                     <span>credits</span>
                                 </div>
                             }
                         </td>
-                        <td style="font-size:0.8rem">@u.CreatedAt.AddHours(7).ToString("dd/MM/yyyy")</td>
+                        <td style="font-size:0.85rem">@u.CreatedAt.AddHours(7).ToString("dd/MM/yyyy")</td>
                         <td>
                             @{
                                 var isSelf = u.Id == User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
@@ -117,15 +117,15 @@
                             }
                             @if (isSelf)
                             {
-                                <span style="font-size:0.75rem;color:var(--text-muted);font-style:italic">Tài khoản của bạn</span>
+                                <span style="font-size:0.8rem;color:var(--text-muted);font-style:italic">Tài khoản của bạn</span>
                             }
                             else if (isOtherAdmin)
                             {
-                                <span style="font-size:0.75rem;color:var(--text-muted);font-style:italic">Quản trị viên khác</span>
+                                <span style="font-size:0.8rem;color:var(--text-muted);font-style:italic">Quản trị viên khác</span>
                             }
                             else
                             {
-                                <button class="btn btn-secondary btn-sm" onclick="openEditUserModal('@u.Id', '@u.FullName', '@role', @(u.IsActive.ToString().ToLower()))">Phân quyền</button>
+                                <button class="btn btn-secondary btn-sm" onclick="openEditUserModal('@u.Id', '@Html.Raw(u.FullName)', '@role', @(u.IsActive.ToString().ToLower()))">Phân quyền</button>
                             }
                         </td>
                     </tr>
@@ -149,21 +149,21 @@
                 @foreach (var p in Model.Payments)
                 {
                     <tr>
-                        <td style="font-family:var(--font-mono);font-size:0.78rem">@p.InvoiceNumber</td>
+                        <td style="font-family:var(--font-mono);font-size:0.82rem">@p.InvoiceNumber</td>
                         <td class="text-primary">@p.User?.FullName</td>
                         <td><span class="badge badge-accent">@(p.Package?.Name ?? p.CreditPackage?.Name ?? "Nạp Credit")</span></td>
-                        <td style="font-family:var(--font-mono);color:var(--success)">@p.Amount.ToString("N0") đ</td>
+                        <td style="font-family:var(--font-mono);color:var(--success);font-weight:600">@p.Amount.ToString("N0") đ</td>
                         <td>
                             <span class="badge @(p.Status == FinalProject_PRN222_Group7.DAL.Entities.PaymentStatus.Completed ? "badge-success" : "badge-warning")">
                                 @p.Status
                             </span>
                         </td>
-                        <td style="font-size:0.8rem">@p.CreatedAt.AddHours(7).ToString("dd/MM/yyyy HH:mm")</td>
+                        <td style="font-size:0.85rem">@p.CreatedAt.AddHours(7).ToString("dd/MM/yyyy HH:mm")</td>
                     </tr>
                 }
                 @if (!Model.Payments.Any())
                 {
-                    <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:32px">Chưa có giao dịch</td></tr>
+                    <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:40px">Chưa có giao dịch nào</td></tr>
                 }
             </tbody>
         </table>
@@ -196,11 +196,11 @@
 </div>
 
 <!-- Create Single User Modal -->
-<div id="createUserModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:440px;box-shadow:var(--shadow-lg)">
+<div id="createUserModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px);z-index:200;align-items:center;justify-content:center">
+    <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-2xl);padding:28px;width:100%;max-width:460px;box-shadow:var(--shadow-xl);animation:modalIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
-            <h3 style="font-size:1rem;font-weight:700">Thêm người dùng mới</h3>
-            <button onclick="document.getElementById('createUserModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer">
+            <h3 style="font-family:var(--font-sans);font-size:1.15rem;font-weight:700">Thêm người dùng mới</h3>
+            <button onclick="document.getElementById('createUserModal').style.display='none'" style="background:var(--bg-elevated);border:none;color:var(--text-muted);cursor:pointer;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
         </div>
@@ -223,27 +223,27 @@
                         <option value="Admin">Quản trị viên</option>
                     </select>
                 </div>
-                <div style="font-size:0.75rem;color:var(--text-muted)">
+                <div style="font-size:0.8rem;color:var(--text-muted);background:var(--info-light);padding:10px 14px;border-radius:var(--radius);">
                     ℹ Mật khẩu ngẫu nhiên sẽ được tạo tự động và gửi qua email cho người dùng.
                 </div>
-                <button type="submit" class="btn btn-primary btn-lg w-full">Tạo tài khoản</button>
+                <button type="submit" class="btn btn-primary btn-lg w-full" style="height:48px">Tạo tài khoản</button>
             </div>
         </form>
     </div>
 </div>
 
 <!-- Bulk Create Users Modal -->
-<div id="bulkModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg)">
+<div id="bulkModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px);z-index:200;align-items:center;justify-content:center">
+    <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-2xl);padding:28px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-xl);animation:modalIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-            <h3 style="font-size:1rem;font-weight:700">⚡ Tạo tài khoản hàng loạt</h3>
-            <button onclick="document.getElementById('bulkModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer">
+            <h3 style="font-family:var(--font-sans);font-size:1.15rem;font-weight:700">⚡ Tạo tài khoản hàng loạt</h3>
+            <button onclick="document.getElementById('bulkModal').style.display='none'" style="background:var(--bg-elevated);border:none;color:var(--text-muted);cursor:pointer;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
         </div>
 
         <!-- Tab buttons -->
-        <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:12px">
+        <div style="display:flex;gap:10px;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border)">
             <button type="button" onclick="switchTab('tabText')" id="btnTabText" class="btn btn-primary btn-sm">📝 Nhập tay</button>
             <button type="button" onclick="switchTab('tabFile')" id="btnTabFile" class="btn btn-secondary btn-sm">📂 Import file CSV</button>
         </div>
@@ -263,12 +263,12 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Nhập danh sách (mỗi dòng 1 người)</label>
-                        <textarea name="BulkData" class="form-control" rows="8" placeholder="Họ Tên, Email&#10;Ví dụ:&#10;Nguyễn Sinh Viên, sinhvien@domain.com&#10;Trần Sinh Viên, sinhvien2@domain.com" style="font-family:var(--font-mono);font-size:0.8rem;line-height:1.4" required></textarea>
+                        <textarea name="BulkData" class="form-control" rows="8" placeholder="Họ Tên, Email&#10;Ví dụ:&#10;Nguyễn Sinh Viên, sinhvien@domain.com&#10;Trần Sinh Viên, sinhvien2@domain.com" style="font-family:var(--font-mono);font-size:0.82rem;line-height:1.5" required></textarea>
                     </div>
-                    <div style="font-size:0.75rem;color:var(--text-muted)">
+                    <div style="font-size:0.8rem;color:var(--text-muted);background:var(--info-light);padding:10px 14px;border-radius:var(--radius)">
                         💡 Phân cách các trường bằng dấu phẩy (`,`). Các tài khoản trên dòng sẽ được tạo với cùng vai trò đã chọn ở trên.
                     </div>
-                    <button type="submit" class="btn btn-primary btn-lg w-full">Bắt đầu tạo &amp; gửi mail</button>
+                    <button type="submit" class="btn btn-primary btn-lg w-full" style="height:48px">Bắt đầu tạo &amp; gửi mail</button>
                 </div>
             </form>
         </div>
@@ -278,9 +278,9 @@
             <form method="post" asp-page-handler="ImportExcel" enctype="multipart/form-data">
                 @Html.AntiForgeryToken()
                 <div style="display:flex;flex-direction:column;gap:16px">
-                    <div style="background:var(--bg-app);border:1px dashed var(--border);border-radius:var(--radius);padding:16px;font-size:0.8rem;color:var(--text-muted)">
-                        <strong>Định dạng file CSV:</strong><br/>
-                        Dòng 1: <code>HoTen,Email,VaiTro</code> (tiêu đề — bắt buộc)<br/>
+                    <div style="background:var(--bg-elevated);border:1px dashed var(--border-hover);border-radius:var(--radius-lg);padding:16px;font-size:0.85rem;color:var(--text-secondary)">
+                        <strong style="color:var(--text-primary)">Định dạng file CSV:</strong><br/>
+                        Dòng 1: <code style="background:var(--bg-surface);padding:2px 6px;border-radius:4px">HoTen,Email,VaiTro</code> (tiêu đề — bắt buộc)<br/>
                         Từ dòng 2: dữ liệu người dùng, phân cách bằng dấu phẩy.
                     </div>
                     <a asp-page-handler="DownloadTemplate" class="btn btn-secondary btn-sm" style="text-align:center;text-decoration:none">
@@ -290,26 +290,26 @@
                         <label class="form-label">Chọn file CSV</label>
                         <input type="file" name="excelFile" accept=".csv" class="form-control" required />
                     </div>
-                    <button type="submit" class="btn btn-primary btn-lg w-full">Import &amp; gửi mail</button>
+                    <button type="submit" class="btn btn-primary btn-lg w-full" style="height:48px">Import &amp; gửi mail</button>
                 </div>
             </form>
         </div>
 
         <!-- Common Preview Section -->
         <div id="bulkPreviewSection" style="display:none;margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
-            <h4 style="font-size:0.875rem;font-weight:600;margin-bottom:12px;color:var(--text-muted);display:flex;justify-content:space-between;align-items:center;">
+            <h4 style="font-family:var(--font-sans);font-size:0.9rem;font-weight:600;margin-bottom:12px;color:var(--text-muted);display:flex;justify-content:space-between;align-items:center;">
                 <span>📋 Xem trước dữ liệu sẽ tạo:</span>
-                <span id="bulkValidationSummary" style="font-size:0.75rem;font-weight:normal;"></span>
+                <span id="bulkValidationSummary" style="font-size:0.78rem;font-weight:normal;"></span>
             </h4>
-            <div style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-app);">
-                <table style="width:100%;font-size:0.75rem;border-collapse:collapse;">
+            <div style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-elevated);">
+                <table style="width:100%;font-size:0.78rem;border-collapse:collapse;">
                     <thead>
-                        <tr style="background:var(--bg-card);border-bottom:1px solid var(--border);text-align:left;color:var(--text-muted);">
-                            <th style="padding:8px;width:50px;">Dòng</th>
-                            <th style="padding:8px;">Họ và tên</th>
-                            <th style="padding:8px;">Email</th>
-                            <th style="padding:8px;width:100px;">Vai trò</th>
-                            <th style="padding:8px;width:120px;">Trạng thái</th>
+                        <tr style="background:var(--bg-surface);border-bottom:1px solid var(--border);text-align:left;color:var(--text-muted);">
+                            <th style="padding:10px;width:50px;">Dòng</th>
+                            <th style="padding:10px;">Họ và tên</th>
+                            <th style="padding:10px;">Email</th>
+                            <th style="padding:10px;width:100px;">Vai trò</th>
+                            <th style="padding:10px;width:120px;">Trạng thái</th>
                         </tr>
                     </thead>
                     <tbody id="bulkPreviewBody">
@@ -321,11 +321,11 @@
 </div>
 
 <!-- Edit User Modal -->
-<div id="editUserModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:440px;box-shadow:var(--shadow-lg)">
+<div id="editUserModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px);z-index:200;align-items:center;justify-content:center">
+    <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-2xl);padding:28px;width:100%;max-width:460px;box-shadow:var(--shadow-xl);animation:modalIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
-            <h3 style="font-size:1rem;font-weight:700">Phân quyền tài khoản</h3>
-            <button onclick="document.getElementById('editUserModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer">
+            <h3 style="font-family:var(--font-sans);font-size:1.15rem;font-weight:700">Phân quyền tài khoản</h3>
+            <button onclick="document.getElementById('editUserModal').style.display='none'" style="background:var(--bg-elevated);border:none;color:var(--text-muted);cursor:pointer;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
         </div>
@@ -335,7 +335,7 @@
             <div style="display:flex;flex-direction:column;gap:16px">
                 <div class="form-group">
                     <label class="form-label">Người dùng</label>
-                    <input type="text" id="editUserFullName" class="form-control" readonly style="background:var(--bg-app);cursor:not-allowed;" />
+                    <input type="text" id="editUserFullName" class="form-control" readonly style="background:var(--bg-elevated);cursor:not-allowed;" />
                 </div>
                 <div class="form-group">
                     <label class="form-label">Vai trò</label>
@@ -352,11 +352,18 @@
                         <option value="false">Bị vô hiệu hóa</option>
                     </select>
                 </div>
-                <button type="submit" class="btn btn-primary btn-lg w-full">Lưu thay đổi</button>
+                <button type="submit" class="btn btn-primary btn-lg w-full" style="height:48px">Lưu thay đổi</button>
             </div>
         </form>
     </div>
 </div>
+
+<style>
+    @@keyframes modalIn {
+        from { opacity: 0; transform: scale(0.95) translateY(10px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+</style>
 
 <script>
     function openEditUserModal(id, fullName, role, isActive) {
@@ -376,7 +383,6 @@
         document.getElementById('btnTabText').className = tabId === 'tabText' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
         document.getElementById('btnTabFile').className = tabId === 'tabFile' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
         
-        // Reset preview
         document.getElementById('bulkPreviewSection').style.display = 'none';
         document.getElementById('bulkPreviewBody').innerHTML = '';
         document.getElementById('bulkValidationSummary').innerText = '';
@@ -384,7 +390,6 @@
         if (tabId === 'tabText') {
             updateManualPreview();
         } else {
-            // Trigger file preview if file is selected
             const fileInput = document.querySelector('input[name="excelFile"]');
             if (fileInput.files.length > 0) {
                 updateFilePreview(fileInput.files[0]);
@@ -392,12 +397,10 @@
         }
     }
 
-    // Helper: validate email format
     function isValidEmail(email) {
         return /^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/.test(email);
     }
 
-    // Live preview for Manual Input
     function updateManualPreview() {
         if (currentTab !== 'tabText') return;
         const raw = document.querySelector('textarea[name="BulkData"]').value.trim();
@@ -430,7 +433,7 @@
             let isRowValid = true;
 
             if (parts.length < 2) {
-                statusHtml = '<span class="badge badge-danger">Sai định dạng (thiếu email)</span>';
+                statusHtml = '<span class="badge badge-danger">Sai định dạng</span>';
                 isRowValid = false;
             } else if (!name) {
                 statusHtml = '<span class="badge badge-danger">Thiếu họ tên</span>';
@@ -439,7 +442,7 @@
                 statusHtml = '<span class="badge badge-danger">Thiếu email</span>';
                 isRowValid = false;
             } else if (!isValidEmail(email)) {
-                statusHtml = '<span class="badge badge-danger">Email không hợp lệ</span>';
+                statusHtml = '<span class="badge badge-danger">Email lỗi</span>';
                 isRowValid = false;
             } else {
                 statusHtml = '<span class="badge badge-success">Hợp lệ</span>';
@@ -450,11 +453,11 @@
             const tr = document.createElement('tr');
             tr.style.borderBottom = '1px solid var(--border)';
             tr.innerHTML = `
-                <td style="padding:8px;color:var(--text-muted);">${lineNo}</td>
-                <td style="padding:8px;font-weight:600;">${name || '<i style="color:var(--text-muted)">Trống</i>'}</td>
-                <td style="padding:8px;">${email || '<i style="color:var(--text-muted)">Trống</i>'}</td>
-                <td style="padding:8px;"><span class="badge badge-accent">${role}</span></td>
-                <td style="padding:8px;">${statusHtml}</td>
+                <td style="padding:10px;color:var(--text-muted);">${lineNo}</td>
+                <td style="padding:10px;font-weight:600;">${name || '<i style="color:var(--text-muted)">Trống</i>'}</td>
+                <td style="padding:10px;">${email || '<i style="color:var(--text-muted)">Trống</i>'}</td>
+                <td style="padding:10px;"><span class="badge badge-accent">${role}</span></td>
+                <td style="padding:10px;">${statusHtml}</td>
             `;
             previewBody.appendChild(tr);
         });
@@ -462,7 +465,6 @@
         summary.innerHTML = `<span style="color:var(--success)">✅ ${validCount} Hợp lệ</span> | <span style="color:var(--danger)">❌ ${invalidCount} Lỗi</span>`;
     }
 
-    // Live preview for File Upload
     function updateFilePreview(file) {
         if (!file) return;
         const previewSection = document.getElementById('bulkPreviewSection');
@@ -470,7 +472,7 @@
         const summary = document.getElementById('bulkValidationSummary');
 
         previewSection.style.display = 'block';
-        previewBody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--text-muted)">Đang đọc dữ liệu file...</td></tr>';
+        previewBody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted)">Đang đọc dữ liệu file...</td></tr>';
 
         const reader = new FileReader();
         reader.onload = function(e) {
@@ -479,11 +481,10 @@
             previewBody.innerHTML = '';
 
             if (lines.length === 0) {
-                previewBody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--danger)">File trống hoặc bị lỗi.</td></tr>';
+                previewBody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--danger)">File trống hoặc bị lỗi.</td></tr>';
                 return;
             }
 
-            // Check headers
             const headerParts = lines[0].split(',').map(h => h.trim().toLowerCase());
             const expectedHeaders = ['hoten', 'email', 'vaitro'];
             const hasCorrectHeader = expectedHeaders.every((h, i) => headerParts[i] === h);
@@ -491,13 +492,12 @@
             if (!hasCorrectHeader) {
                 previewBody.innerHTML = `
                     <tr>
-                        <td colspan="5" style="text-align:center;padding:16px;color:var(--danger);font-weight:600;">
-                            ❌ Lỗi định dạng dòng tiêu đề (Dòng 1)!<br/>
-                            Yêu cầu đúng thứ tự: <code style="background:var(--bg-app);padding:2px 4px;">HoTen,Email,VaiTro</code>.<br/>
-                            Nội dung hiện tại của bạn: <code style="background:var(--bg-app);padding:2px 4px;">${lines[0]}</code>
+                        <td colspan="5" style="text-align:center;padding:20px;color:var(--danger);font-weight:600;">
+                            ❌ Lỗi dòng tiêu đề (Dòng 1)!<br/>
+                            Yêu cầu: <code style="background:var(--bg-surface);padding:2px 6px;border-radius:4px">HoTen,Email,VaiTro</code>
                         </td>
                     </tr>`;
-                summary.innerHTML = '<span style="color:var(--danger)">❌ Dòng tiêu đề bị lỗi</span>';
+                summary.innerHTML = '<span style="color:var(--danger)">❌ Dòng tiêu đề lỗi</span>';
                 return;
             }
 
@@ -514,19 +514,16 @@
                 let isRowValid = true;
 
                 if (parts.length < 3) {
-                    statusHtml = '<span class="badge badge-danger">Sai cấu trúc cột</span>';
+                    statusHtml = '<span class="badge badge-danger">Sai cấu trúc</span>';
                     isRowValid = false;
                 } else if (!name) {
                     statusHtml = '<span class="badge badge-danger">Thiếu họ tên</span>';
                     isRowValid = false;
-                } else if (!email) {
-                    statusHtml = '<span class="badge badge-danger">Thiếu email</span>';
-                    isRowValid = false;
-                } else if (!isValidEmail(email)) {
-                    statusHtml = '<span class="badge badge-danger">Email sai định dạng</span>';
+                } else if (!email || !isValidEmail(email)) {
+                    statusHtml = '<span class="badge badge-danger">Email lỗi</span>';
                     isRowValid = false;
                 } else if (!['Student', 'Lecturer', 'Admin'].includes(role)) {
-                    statusHtml = '<span class="badge badge-danger">Vai trò không hợp lệ</span>';
+                    statusHtml = '<span class="badge badge-danger">Vai trò lỗi</span>';
                     isRowValid = false;
                 } else {
                     statusHtml = '<span class="badge badge-success">Hợp lệ</span>';
@@ -537,11 +534,11 @@
                 const tr = document.createElement('tr');
                 tr.style.borderBottom = '1px solid var(--border)';
                 tr.innerHTML = `
-                    <td style="padding:8px;color:var(--text-muted);">${lineNo}</td>
-                    <td style="padding:8px;font-weight:600;">${name || '<i style="color:var(--text-muted)">Trống</i>'}</td>
-                    <td style="padding:8px;">${email || '<i style="color:var(--text-muted)">Trống</i>'}</td>
-                    <td style="padding:8px;"><span class="badge badge-accent">${role || '<i style="color:var(--text-muted)">Trống</i>'}</span></td>
-                    <td style="padding:8px;">${statusHtml}</td>
+                    <td style="padding:10px;color:var(--text-muted);">${lineNo}</td>
+                    <td style="padding:10px;font-weight:600;">${name || '<i style="color:var(--text-muted)">Trống</i>'}</td>
+                    <td style="padding:10px;">${email || '<i style="color:var(--text-muted)">Trống</i>'}</td>
+                    <td style="padding:10px;"><span class="badge badge-accent">${role || '<i style="color:var(--text-muted)">Trống</i>'}</span></td>
+                    <td style="padding:10px;">${statusHtml}</td>
                 `;
                 previewBody.appendChild(tr);
             }
@@ -551,7 +548,6 @@
         reader.readAsText(file);
     }
 
-    // Attach listeners
     document.querySelector('textarea[name="BulkData"]').addEventListener('input', updateManualPreview);
     document.querySelector('select[name="bulkRole"]').addEventListener('change', updateManualPreview);
     document.querySelector('input[name="excelFile"]').addEventListener('change', function(e) {
@@ -560,7 +556,6 @@
         }
     });
 
-    // EditUser confirm
     document.getElementById('editUserModal').querySelector('form').addEventListener('submit', function(e) {
         e.preventDefault();
         const form = this;
@@ -574,7 +569,6 @@
             false);
     });
 
-    // CreateBulk confirm
     document.getElementById('tabText').querySelector('form').addEventListener('submit', function(e) {
         e.preventDefault();
         const form = this;
@@ -586,7 +580,6 @@
             false);
     });
 
-    // CreateSingle prevent double-submit
     document.getElementById('createUserModal').querySelector('form').addEventListener('submit', function() {
         setButtonLoading(this.querySelector('[type="submit"]'), 'Đang tạo...');
     });

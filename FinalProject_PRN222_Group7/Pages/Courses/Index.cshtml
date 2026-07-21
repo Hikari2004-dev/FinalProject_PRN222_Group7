@@ -4,27 +4,6 @@
     ViewData["Title"] = "Môn học";
 }
 
-<style>
-    /* Tránh Stacking Context đè của Sidebar lên các Modal trong Main Content */
-    #courseDocsModal, #createModal, #editCourseModal {
-        left: var(--sidebar-w) !important;
-        transition: left var(--dur) var(--ease) !important;
-    }
-    
-    .sidebar-collapsed + .main-content #courseDocsModal,
-    .sidebar-collapsed + .main-content #createModal,
-    .sidebar-collapsed + .main-content #editCourseModal {
-        left: var(--sidebar-w-sm) !important;
-    }
-
-    /* Trên Mobile (khi màn hình nhỏ hơn hoặc bằng 1024px, sidebar chuyển sang chế độ overlay) */
-    @@media (max-width: 1024px) {
-        #courseDocsModal, #createModal, #editCourseModal {
-            left: 0 !important;
-        }
-    }
-</style>
-
 
 <div class="page-header">
     <div>
@@ -34,7 +13,7 @@
     @if (User.IsInRole("Admin"))
     {
         <button class="btn btn-primary" onclick="document.getElementById('createModal').style.display='flex'">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Tạo môn học
         </button>
     }
@@ -42,52 +21,52 @@
 
 @if (TempData["Success"] != null)
 {
-    <div style="background:var(--success-muted);border:1px solid rgba(16,185,129,0.25);border-radius:var(--radius);padding:12px 14px;margin-bottom:20px;font-size:0.875rem;color:var(--success)">
+    <div style="background:var(--success-light);border:1px solid rgba(16,185,129,0.2);border-radius:var(--radius);padding:14px 16px;margin-bottom:20px;font-size:0.9rem;color:var(--success)">
         @TempData["Success"]
     </div>
 }
 @if (TempData["Error"] != null)
 {
-    <div style="background:var(--danger-muted);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius);padding:12px 14px;margin-bottom:20px;font-size:0.875rem;color:var(--danger)">
+    <div style="background:var(--danger-light);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius);padding:14px 16px;margin-bottom:20px;font-size:0.9rem;color:var(--danger)">
         @TempData["Error"]
     </div>
 }
 
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px">
     @foreach (var c in Model.Courses)
     {
-        <div class="card" style="transition:border-color 0.15s,box-shadow 0.15s" onmouseenter="this.style.borderColor='var(--border-hover)';this.style.boxShadow='var(--shadow)'" onmouseleave="this.style.borderColor='var(--border)';this.style.boxShadow=''">
-            <div class="card-body" style="display:flex;flex-direction:column;justify-content:space-between;height:100%;min-height:220px">
+        <div class="card" style="transition:all 0.2s" onmouseenter="this.style.transform='translateY(-4px)';this.style.boxShadow='var(--shadow-lg)'" onmouseleave="this.style.transform='translateY(0)';this.style.boxShadow='var(--shadow-sm)'">
+            <div class="card-body" style="display:flex;flex-direction:column;justify-content:space-between;height:100%;min-height:240px">
                 <div>
-                    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
-                        <div style="width:42px;height:42px;background:var(--accent-muted);border-radius:10px;display:flex;align-items:center;justify-content:center">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px">
+                        <div style="width:48px;height:48px;background:var(--accent-light);border-radius:14px;display:flex;align-items:center;justify-content:center">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
                         </div>
                         <span class="badge badge-muted" style="font-family:var(--font-mono)">@c.Code</span>
                     </div>
-                    <h3 style="font-size:0.95rem;font-weight:600;color:var(--text-primary);margin-bottom:6px">@c.Name</h3>
-                    <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:14px;min-height:36px">@c.Description</p>
+                    <h3 style="font-family:var(--font-sans);font-size:1rem;font-weight:700;color:var(--text-primary);margin-bottom:8px">@c.Name</h3>
+                    <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:16px;min-height:40px;line-height:1.5">@c.Description</p>
                     
-                    <div style="display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--text-secondary);margin-bottom:8px">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>
-                        <span>Đã có <strong>@c.Documents.Count</strong> tài liệu học tập</span>
+                    <div style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--text-secondary);margin-bottom:10px">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>
+                        <span>Đã có <strong style="color:var(--accent)">@c.Documents.Count</strong> tài liệu học tập</span>
                     </div>
                 </div>
                 
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
-                    <div style="font-size:0.75rem;color:var(--text-muted)">
-                        GV: @(c.Lecturer?.FullName ?? "Chưa phân công")
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+                    <div style="font-size:0.8rem;color:var(--text-muted)">
+                        GV: <span style="font-weight:500;color:var(--text-secondary)">@(c.Lecturer?.FullName ?? "Chưa phân công")</span>
                     </div>
-                    <div style="display:flex;gap:6px">
-                        <button type="button" class="btn btn-primary btn-sm" onclick="openCourseDocsModal('@c.Id', '@(c.LecturerId == Model.CurrentUserId && User.IsInRole("Lecturer") ? "true" : "false")')" style="padding:4px 10px;font-size:0.72rem;height:auto;line-height:1">
+                    <div style="display:flex;gap:8px">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="openCourseDocsModal('@c.Id', 'true')" style="padding:6px 12px;font-size:0.78rem">
                             📄 Tài liệu
                         </button>
                         @if (User.IsInRole("Admin"))
                         {
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="openEditCourseModal('@c.Id', '@c.Name', '@c.Code', '@c.Description', '@c.LecturerId')" style="padding:4px 8px;font-size:0.72rem;height:auto;line-height:1">Sửa</button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="openEditCourseModal('@c.Id', '@c.Name', '@c.Code', '@c.Description', '@c.LecturerId')" style="padding:6px 10px;font-size:0.78rem">Sửa</button>
                             <form method="post" asp-page-handler="DeleteCourse" asp-route-id="@c.Id" id="deleteCourseForm-@c.Id" style="display:inline">
                                 @Html.AntiForgeryToken()
-                                <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteCourse('@c.Id', '@Html.Raw(c.Name)')" style="padding:4px 8px;font-size:0.72rem;height:auto;line-height:1;background:var(--danger-muted);color:var(--danger);border:1px solid rgba(239,68,68,0.25)">Xóa</button>
+                                <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteCourse('@c.Id', '@Html.Raw(c.Name.Replace("\"", "\\\""))')" style="padding:6px 10px;font-size:0.78rem">Xóa</button>
                             </form>
                         }
                     </div>
@@ -110,11 +89,11 @@
 <!-- Create Modal (Chỉ Admin) -->
 @if (User.IsInRole("Admin"))
 {
-    <div id="createModal" style="display:none;position:fixed;top:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
-        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:440px;box-shadow:var(--shadow-lg)">
+    <div id="createModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px);z-index:9998;align-items:center;justify-content:center">
+        <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-2xl);padding:28px;width:100%;max-width:460px;box-shadow:var(--shadow-xl);animation:modalIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
-                <h3 style="font-size:1rem;font-weight:700">Tạo môn học mới</h3>
-                <button onclick="document.getElementById('createModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer">
+                <h3 style="font-family:var(--font-sans);font-size:1.15rem;font-weight:700">Tạo môn học mới</h3>
+                <button onclick="document.getElementById('createModal').style.display='none'" style="background:var(--bg-elevated);border:none;color:var(--text-muted);cursor:pointer;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
             </div>
@@ -143,18 +122,18 @@
                             }
                         </select>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-lg w-full">Tạo môn học</button>
+                    <button type="submit" class="btn btn-primary btn-lg w-full" style="height:48px">Tạo môn học</button>
                 </div>
             </form>
         </div>
     </div>
 
     <!-- Edit Course Modal -->
-    <div id="editCourseModal" style="display:none;position:fixed;top:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
-        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:440px;box-shadow:var(--shadow-lg)">
+    <div id="editCourseModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px);z-index:9998;align-items:center;justify-content:center">
+        <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-2xl);padding:28px;width:100%;max-width:460px;box-shadow:var(--shadow-xl);animation:modalIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
-                <h3 style="font-size:1rem;font-weight:700">Chỉnh sửa môn học</h3>
-                <button onclick="document.getElementById('editCourseModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer">
+                <h3 style="font-family:var(--font-sans);font-size:1.15rem;font-weight:700">Chỉnh sửa môn học</h3>
+                <button onclick="document.getElementById('editCourseModal').style.display='none'" style="background:var(--bg-elevated);border:none;color:var(--text-muted);cursor:pointer;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
             </div>
@@ -184,7 +163,7 @@
                             }
                         </select>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-lg w-full">Lưu thay đổi</button>
+                    <button type="submit" class="btn btn-primary btn-lg w-full" style="height:48px">Lưu thay đổi</button>
                 </div>
             </form>
         </div>
@@ -192,57 +171,80 @@
 }
 
 <!-- Course Documents List & Upload Modal -->
-<div id="courseDocsModal" style="display:none;position:fixed;top:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:700px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow-lg)">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+<div id="courseDocsModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:16px;padding:24px;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,0.5)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
             <div style="display:flex;flex-direction:column;gap:4px">
-                <h3 style="font-size:1.1rem;font-weight:700;color:var(--text-primary)" id="docCourseTitle">Tài liệu môn học</h3>
-                <p style="font-size:0.75rem;color:var(--text-muted)" id="docCourseDesc"></p>
+                <h3 style="font-family:var(--font-sans);font-size:1.2rem;font-weight:700;color:var(--text-primary)" id="docCourseTitle">Tài liệu môn học</h3>
+                <p style="font-size:0.8rem;color:var(--text-muted)" id="docCourseDesc"></p>
             </div>
-            <button onclick="closeCourseDocsModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer">
+            <button onclick="closeCourseDocsModal()" style="background:var(--bg-secondary);border:none;color:var(--text-muted);cursor:pointer;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
         </div>
 
-        <div style="margin-bottom:24px">
-            <h4 style="font-size:0.88rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary)">Danh sách chương & tài liệu</h4>
-            <div id="docsList" style="max-height:400px;overflow-y:auto;padding-right:4px;">
-                <!-- Dùng JS render -->
+        <!-- Section upload tài liệu - ĐẶT Ở ĐẦU -->
+        <div id="docUploadSection" style="display:none;margin-bottom:24px">
+            <div style="background:var(--accent-lighter);border:2px dashed var(--accent);border-radius:var(--radius-lg);padding:20px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+                    <span style="font-size:1.2rem">📤</span>
+                    <h4 style="font-family:var(--font-sans);font-size:0.95rem;font-weight:700;color:var(--accent);margin:0">Tải lên tài liệu mới</h4>
+                </div>
+                <form method="post" asp-page-handler="UploadDoc" enctype="multipart/form-data" id="uploadDocForm">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="UploadCourseId" id="docCourseId" />
+                    <div style="display:flex;flex-direction:column;gap:12px">
+                        <div class="form-group">
+                            <label class="form-label">Chương học <span style="color:var(--text-muted);font-weight:400">(tùy chọn)</span></label>
+                            <select name="UploadChapterId" id="uploadChapterIdSelect" class="form-control">
+                                <option value="">-- Chưa phân chương --</option>
+                            </select>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:12px">
+                            <div style="flex:1;border:2px dashed var(--border);border-radius:var(--radius-md);padding:16px;background:var(--bg-primary);cursor:pointer;transition:all 0.2s" onclick="document.getElementById('uploadedFileInput').click()" onmouseover="this.style.borderColor='var(--accent)';this.style.background='var(--accent-light)'" onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--bg-primary)'" id="uploadDropZone">
+                                <div style="display:flex;align-items:center;justify-content:center;gap:8px">
+                                    <span style="font-size:1.5rem">📎</span>
+                                    <div style="text-align:left">
+                                        <div style="font-size:0.85rem;font-weight:600;color:var(--text-primary)" id="fileNameLabel">Click để chọn file</div>
+                                        <div style="font-size:0.72rem;color:var(--text-muted)">.txt, .pdf, .docx</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="file" name="UploadedFile" id="uploadedFileInput" style="display:none!important" accept=".txt,.pdf,.docx" onchange="updateFileNameLabel(this)" />
+                        </div>
+                        <button type="submit" class="btn btn-primary w-full" style="height:44px">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            Tải lên & Phân mảnh
+                        </button>
+                    </div>
+                </form>
+                
+                <!-- Form tạo chương mới -->
+                <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+                    <form method="post" asp-page-handler="AddChapter">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="courseId" id="addChapterCourseId" />
+                        <div style="display:flex;gap:8px;align-items:flex-end">
+                            <div class="form-group" style="flex:1;margin:0">
+                                <label class="form-label" style="font-size:0.8rem">Tạo chương mới</label>
+                                <input type="text" name="name" placeholder="VD: Chương 1 - Giới thiệu" class="form-control" required />
+                            </div>
+                            <button type="submit" class="btn btn-secondary" style="height:42px;white-space:nowrap">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                Thêm
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
 
-        <!-- Section upload tài liệu trực tiếp -->
-        <div id="docUploadSection" style="border-top:1px solid var(--border);padding-top:20px;display:none">
-            <h4 style="font-size:0.88rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary)">Tải lên tài liệu mới</h4>
-            <form method="post" asp-page-handler="UploadDoc" enctype="multipart/form-data">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="UploadCourseId" id="docCourseId" />
-                <div style="display:flex;flex-direction:column;gap:12px">
-                    <div class="form-group">
-                        <label class="form-label" style="font-size:0.78rem;margin-bottom:6px">Chọn chương học</label>
-                        <select name="UploadChapterId" id="uploadChapterIdSelect" class="form-control" required>
-                            <!-- JS render options -->
-                        </select>
-                    </div>
-                    <div style="border:2px dashed var(--border);border-radius:var(--radius);padding:20px;text-align:center;background:var(--bg-app);cursor:pointer" onclick="document.getElementById('uploadedFileInput').click()">
-                        <span style="font-size:2rem;display:block;margin-bottom:8px">📤</span>
-                        <span style="font-size:0.8rem;color:var(--text-secondary)" id="fileNameLabel">Chọn tệp tin (.txt, .pdf, .docx)</span>
-                        <input type="file" name="UploadedFile" id="uploadedFileInput" style="display:none" accept=".txt,.pdf,.docx" required onchange="updateFileNameLabel(this)" />
-                    </div>
-                    <button type="submit" class="btn btn-primary w-full">Đăng và phân mảnh tài liệu</button>
-                </div>
-            </form>
-
-            <!-- Form tạo chương học mới trực tiếp -->
-            <form method="post" asp-page-handler="AddChapter" style="margin-top:20px;border-top:1px solid var(--border);padding-top:20px;">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="courseId" id="addChapterCourseId" />
-                <h4 style="font-size:0.88rem;font-weight:600;margin-bottom:12px;color:var(--text-secondary)">Tạo chương học mới</h4>
-                <div style="display:flex;gap:10px;">
-                    <input type="text" name="name" placeholder="Tên chương (Ví dụ: Chương 1: Giới thiệu)" class="form-control" style="flex:1;" required />
-                    <button type="submit" class="btn btn-secondary" style="white-space:nowrap;padding:0 16px;">Thêm chương</button>
-                </div>
-            </form>
+        <!-- Danh sách tài liệu -->
+        <div style="margin-bottom:16px">
+            <h4 style="font-family:var(--font-sans);font-size:0.9rem;font-weight:600;margin-bottom:14px;color:var(--text-secondary)">📚 Danh sách chương & tài liệu</h4>
+            <div id="docsList" style="max-height:350px;overflow-y:auto;padding-right:4px;">
+                <!-- Dùng JS render -->
+            </div>
         </div>
     </div>
 </div>
@@ -322,7 +324,6 @@
             false
         );
     }
-    // ──────────────────────────────────────────────────────────────────
 
     function openEditCourseModal(id, name, code, description, lecturerId) {
         document.getElementById('editCourseId').value = id;
@@ -338,33 +339,33 @@
         document.getElementById('editCourseModal').style.display = 'flex';
     }
 
-    function renderDocRow(doc, canManage, lecturerId) {
+    function renderDocRow(doc, canManage) {
         const statusClass = doc.status === 'Indexed' ? 'badge-success' : doc.status === 'Processing' ? 'badge-warning' : doc.status === 'Failed' ? 'badge-danger' : 'badge-muted';
         return `
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:var(--bg-card);border:1px solid rgba(99,130,185,0.06);border-radius:var(--radius);gap:12px;margin-bottom:6px;">
-                <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;">
-                    <span style="font-size:1.2rem;flex-shrink:0;">📄</span>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-lg);gap:14px;margin-bottom:8px;">
+                <div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1;">
+                    <span style="font-size:1.4rem;flex-shrink:0;">📄</span>
                     <div style="min-width:0;flex:1;">
-                        <div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${doc.name}">${doc.name}</div>
-                        <div style="font-size:0.68rem;color:var(--text-muted);margin-top:2px;">Size: ${formatBytes(doc.size)} | Ngày: ${doc.uploadedAt || 'N/A'} | Người tải: ${doc.uploadedBy || 'Hệ thống'}</div>
+                        <div style="font-size:0.85rem;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${doc.name}">${doc.name}</div>
+                        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">Size: ${formatBytes(doc.size)} | Ngày: ${doc.uploadedAt || 'N/A'} | Người tải: ${doc.uploadedBy || 'Hệ thống'}</div>
                     </div>
                 </div>
-                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-                    <span class="badge ${statusClass}" style="font-size:0.65rem;padding:2px 6px;">${doc.status}</span>
-                    <a href="/Documents/Detail/${doc.id}" class="btn btn-secondary btn-sm" style="padding:3px 6px;font-size:0.68rem;height:auto;line-height:1;">Đọc</a>
-                    <a href="/Courses?handler=DownloadDocument&docId=${doc.id}" class="btn btn-secondary btn-sm" style="padding:3px 6px;font-size:0.68rem;height:auto;line-height:1;background:var(--success-muted);color:var(--success);border:1px solid rgba(16,185,129,0.25)">Tải file gốc</a>
+                <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+                    <span class="badge ${statusClass}" style="font-size:0.7rem;padding:4px 10px;">${doc.status}</span>
+                    <a href="/Documents/Detail/${doc.id}" class="btn btn-secondary btn-sm" style="padding:5px 10px;font-size:0.72rem">Đọc</a>
+                    <a href="/Courses?handler=DownloadDocument&docId=${doc.id}" class="btn btn-success btn-sm" style="padding:5px 10px;font-size:0.72rem">Tải file gốc</a>
                     
                     ${canManage ? `
                     <form method="post" action="?handler=ReindexDocument" id="reindexDocForm-${doc.id}" style="display:inline;" onsubmit="return false;">
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="docId" value="${doc.id}" />
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="confirmReindexDoc(${doc.id}, '${doc.name}')" style="padding:3px 6px;font-size:0.68rem;height:auto;line-height:1;background:var(--accent-muted);color:var(--accent);border:1px solid rgba(59,130,246,0.25)">Index lại</button>
+                        <button type="button" class="btn btn-accent btn-sm" onclick="confirmReindexDoc(${doc.id}, '${doc.name}')" style="padding:5px 10px;font-size:0.72rem">Index lại</button>
                     </form>
                     
                     <form method="post" action="?handler=DeleteDocument" id="deleteDocForm-${doc.id}" style="display:inline;" onsubmit="return false;">
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="docId" value="${doc.id}" />
-                        <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteDoc(${doc.id}, '${doc.name}')" style="padding:3px 6px;font-size:0.68rem;height:auto;line-height:1;background:var(--danger-muted);color:var(--danger);border:1px solid rgba(239,68,68,0.25)">Xóa</button>
+                        <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteDoc(${doc.id}, '${doc.name}')" style="padding:5px 10px;font-size:0.72rem">Xóa</button>
                     </form>
                     ` : ''}
                 </div>
@@ -395,12 +396,10 @@
         document.getElementById('docCourseTitle').innerText = 'Môn học: ' + data.name + ' (' + data.code + ')';
         document.getElementById('docCourseDesc').innerText = data.description || "Không có mô tả.";
 
-        // Bật tắt vùng upload và quản lý chương
         const uploadSection = document.getElementById('docUploadSection');
         if (canUpload === 'true') {
             uploadSection.style.display = 'block';
             
-            // Populate chapters select list for uploading
             const uploadChapterSelect = document.getElementById('uploadChapterIdSelect');
             if (uploadChapterSelect) {
                 uploadChapterSelect.innerHTML = '<option value="">-- Chọn Chương học --</option>';
@@ -409,7 +408,6 @@
                 });
             }
             
-            // Populate Course ID for add chapter form
             const addChapterCourseId = document.getElementById('addChapterCourseId');
             if (addChapterCourseId) {
                 addChapterCourseId.value = courseId;
@@ -418,11 +416,9 @@
             uploadSection.style.display = 'none';
         }
 
-        // Reset file input
         document.getElementById('uploadedFileInput').value = '';
         document.getElementById('fileNameLabel').innerText = 'Chọn tệp tin (.txt, .pdf, .docx)';
 
-        // Render tài liệu gom nhóm theo chương
         const docsList = document.getElementById('docsList');
         docsList.innerHTML = '';
 
@@ -430,49 +426,48 @@
 
         if (data.chapters.length === 0 && data.docs.length === 0) {
             docsList.innerHTML = `
-                <div style="text-align:center;padding:24px;color:var(--text-muted)">
-                    <span style="font-size:2rem;display:block;margin-bottom:8px">📄</span>
-                    <span style="font-size:0.8rem">Chưa có chương học và tài liệu nào thuộc môn học này.</span>
+                <div style="text-align:center;padding:32px;color:var(--text-muted)">
+                    <div style="font-size:2.5rem;margin-bottom:12px">📄</div>
+                    <span style="font-size:0.9rem">Chưa có chương học và tài liệu nào thuộc môn học này.</span>
                 </div>
             `;
             document.getElementById('courseDocsModal').style.display = 'flex';
             return;
         }
 
-        let html = '<div style="display:flex;flex-direction:column;gap:16px;">';
+        let html = '<div style="display:flex;flex-direction:column;gap:20px;">';
 
-        // Render từng chương
         data.chapters.forEach(ch => {
             const chDocs = data.docs.filter(d => d.chapterId === ch.id);
             
             html += `
-                <div style="border:1px solid var(--border);border-radius:var(--radius);padding:14px;background:var(--bg-app);">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;border-bottom:1px solid rgba(99,130,185,0.08);padding-bottom:8px;gap:10px;">
-                        <h5 style="font-size:0.88rem;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;margin:0;">
+                <div style="border:1px solid var(--border);border-radius:var(--radius-xl);padding:16px;background:var(--bg-elevated);">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:12px;gap:12px;">
+                        <h5 style="font-family:var(--font-sans);font-size:0.95rem;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;margin:0;">
                             📂 ${ch.name}
                         </h5>
                         ${canManage ? `
                         <form method="post" action="?handler=DeleteChapter" id="deleteChapterForm-${ch.id}" style="display:inline;margin:0;" onsubmit="return false;">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="chapterId" value="${ch.id}" />
-                            <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteChapter(${ch.id}, '${ch.name.replace(/'/g, "\\'")}')" style="padding:2px 6px;font-size:0.68rem;height:auto;line-height:1;background:var(--danger-muted);color:var(--danger);border:1px solid rgba(239,68,68,0.25)">
+                            <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteChapter(${ch.id}, '${ch.name.replace(/'/g, "\\'")}')" style="padding:4px 10px;font-size:0.72rem">
                                 Xóa chương
                             </button>
                         </form>
                         ` : ''}
                     </div>
-                    <div style="display:flex;flex-direction:column;gap:2px;">
+                    <div style="display:flex;flex-direction:column;gap:4px;">
             `;
 
             if (chDocs.length === 0) {
                 html += `
-                    <div style="padding:8px;text-align:center;color:var(--text-muted);font-size:0.75rem;font-style:italic;">
+                    <div style="padding:12px;text-align:center;color:var(--text-muted);font-size:0.8rem;font-style:italic;">
                         Chưa có tài liệu trong chương này.
                     </div>
                 `;
             } else {
                 chDocs.forEach(doc => {
-                    html += renderDocRow(doc, canManage, data.lecturerId);
+                    html += renderDocRow(doc, canManage);
                 });
             }
 
@@ -482,28 +477,27 @@
             `;
         });
 
-        // Render tài liệu không phân vào chương
         const generalDocs = data.docs.filter(d => d.chapterId === null);
         if (generalDocs.length > 0 || data.chapters.length === 0) {
             html += `
-                <div style="border:1px solid var(--border);border-radius:var(--radius);padding:14px;background:var(--bg-app);">
-                    <div style="margin-bottom:12px;border-bottom:1px solid rgba(99,130,185,0.08);padding-bottom:8px;">
-                        <h5 style="font-size:0.88rem;font-weight:700;color:var(--text-primary);margin:0;">
+                <div style="border:1px solid var(--border);border-radius:var(--radius-xl);padding:16px;background:var(--bg-elevated);">
+                    <div style="margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:12px;">
+                        <h5 style="font-family:var(--font-sans);font-size:0.95rem;font-weight:700;color:var(--text-primary);margin:0;">
                             📄 Tài liệu chung (Chưa phân chương)
                         </h5>
                     </div>
-                    <div style="display:flex;flex-direction:column;gap:2px;">
+                    <div style="display:flex;flex-direction:column;gap:4px;">
             `;
 
             if (generalDocs.length === 0) {
                 html += `
-                    <div style="padding:8px;text-align:center;color:var(--text-muted);font-size:0.75rem;font-style:italic;">
+                    <div style="padding:12px;text-align:center;color:var(--text-muted);font-size:0.8rem;font-style:italic;">
                         Không có tài liệu chung nào.
                     </div>
                 `;
             } else {
                 generalDocs.forEach(doc => {
-                    html += renderDocRow(doc, canManage, data.lecturerId);
+                    html += renderDocRow(doc, canManage);
                 });
             }
 
@@ -539,7 +533,6 @@
         return (bytes / 1024.0 / 1024.0).toFixed(1) + ' MB';
     }
 
-    // Khôi phục trạng thái Modal và Lắng nghe SignalR
     window.addEventListener('DOMContentLoaded', () => {
         const activeCourseId = sessionStorage.getItem('activeCourseDocsId');
         const canUpload = sessionStorage.getItem('activeCourseDocsCanUpload');
@@ -552,11 +545,7 @@
             }
         }
 
-
-
-        // ─── Confirm & Loading cho các form thao tác ───────────────────────────
-
-        // EditCourse → cần confirm trước khi lưu
+        // EditCourse confirm
         const editCourseForm = document.querySelector('#editCourseModal form');
         if (editCourseForm) {
             editCourseForm.addEventListener('submit', function(e) {
@@ -577,7 +566,7 @@
             });
         }
 
-        // CreateCourse → không cần confirm, chỉ loading
+        // CreateCourse loading
         const createCourseForm = document.querySelector('#createModal form');
         if (createCourseForm) {
             createCourseForm.addEventListener('submit', function() {
@@ -586,9 +575,7 @@
             });
         }
 
-        // UploadDoc form → loading khi upload
-        const uploadDocForm = document.querySelector('form[asp-page-handler="UploadDoc"], form[action*="UploadDoc"]');
-        // Note: vì form dùng asp-page-handler, dùng ID cha để tìm form
+        // UploadDoc form loading
         const docUploadSection = document.getElementById('docUploadSection');
         if (docUploadSection) {
             const uploadForm = docUploadSection.querySelector('form');
@@ -599,7 +586,6 @@
                 });
             }
 
-            // AddChapter form → loading
             const forms = docUploadSection.querySelectorAll('form');
             if (forms.length > 1) {
                 forms[1].addEventListener('submit', function() {

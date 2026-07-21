@@ -151,13 +151,15 @@ namespace FinalProject_PRN222_Group7.Pages.Courses
             return RedirectToPage();
         }
 
-        // Chỉ Giảng viên phụ trách môn học đó mới được upload tài liệu
+        // Chỉ Giảng viên phụ trách môn học đó hoặc Admin mới được upload tài liệu
         public async Task<IActionResult> OnPostUploadDocAsync()
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return RedirectToPage("/Auth/Login");
 
-            if (!User.IsInRole("Lecturer"))
+            var isAdmin = User.IsInRole("Admin");
+
+            if (!isAdmin && !User.IsInRole("Lecturer"))
             {
                 TempData["Error"] = "Chỉ giảng viên mới được quyền tải lên tài liệu giảng dạy.";
                 return RedirectToPage();
@@ -176,7 +178,7 @@ namespace FinalProject_PRN222_Group7.Pages.Courses
                 return RedirectToPage();
             }
 
-            if (course.LecturerId != user.Id)
+            if (!isAdmin && course.LecturerId != user.Id)
             {
                 TempData["Error"] = "Bạn không có quyền upload tài liệu cho môn học này.";
                 return RedirectToPage();
