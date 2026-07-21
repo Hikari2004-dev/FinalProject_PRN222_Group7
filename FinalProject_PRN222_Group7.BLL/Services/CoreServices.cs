@@ -26,11 +26,13 @@ namespace FinalProject_PRN222_Group7.BLL.Services
     {
         private readonly IDocumentRepository _repo;
         private readonly AppDbContext _context;
+        private readonly IConfiguration _configuration;
 
-        public DocumentService(IDocumentRepository repo, AppDbContext context)
+        public DocumentService(IDocumentRepository repo, AppDbContext context, IConfiguration configuration)
         {
             _repo = repo;
             _context = context;
+            _configuration = configuration;
         }
 
         public async Task<IEnumerable<Document>> GetAllDocumentsAsync(string? userId = null, int? courseId = null, string? lecturerId = null)
@@ -168,8 +170,9 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                     }
                 }
 
-                // Cắt thành các chunk 500 ký tự, bảo toàn từ, từ bị cắt thay bằng !!!!
-                var chunksText = SplitIntoChunks(text, 500);
+                // Cắt thành các chunk theo cấu hình hệ thống (mặc định 500 ký tự), bảo toàn từ
+                var chunkSize = _configuration.GetValue<int>("Gemini:ChunkSize", 500);
+                var chunksText = SplitIntoChunks(text, chunkSize);
 
                 // Xoá chunks cũ nếu có
                 var oldChunks = await _context.DocumentChunks.Where(c => c.DocumentId == docId).ToListAsync();
@@ -529,9 +532,18 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                     .ToListAsync()
                 : new List<DocumentChunk>();
 
+            var stopWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "của", "môn", "cho", "theo", "như", "này", "đó", "nào", "được", "trong", "những", "hoặc",
+                "là", "gì", "các", "với", "đang", "bị", "bởi", "về", "hướng", "đối", "tượng", "này", "khi",
+                "sao", "tại", "thế", "làm", "ra", "đâu", "từ", "đến"
+            };
+
             var keywords = question.ToLower()
                 .Split(new[] { ' ', '?', ',', '.', '!', '-', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
-                .Where(w => w.Length > 2).Distinct().ToList();
+                .Where(w => w.Length > 1 && !stopWords.Contains(w))
+                .Distinct()
+                .ToList();
 
             var matched = dbChunks
                 .Select(c => new { Chunk = c, Score = keywords.Count(k => c.Content.ToLower().Contains(k)) })
@@ -541,11 +553,38 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                 .Select(x => x.Chunk)
                 .ToList();
 
-            if (!matched.Any()) matched = dbChunks.Take(2).ToList();
+            var isOutOfScope = !matched.Any();
 
-            var contextText = string.Join("\n\n", matched.Select(c => $"[{c.Document.OriginalName}]: {c.Content}"));
-            var citations = matched.Select(c => c.Document.OriginalName).Distinct().ToList();
-            if (!citations.Any()) citations.Add("Kiến thức nền tảng hệ thống");
+            if (isOutOfScope)
+            {
+                try
+                {
+                    var courseName = "Không xác định";
+                    if (courseId.HasValue)
+                    {
+                        var course = await _context.Courses.FindAsync(courseId.Value);
+                        if (course != null) courseName = course.Name;
+                    }
+
+                    var logDir = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "Logs");
+                    System.IO.Directory.CreateDirectory(logDir);
+                    var logFile = System.IO.Path.Combine(logDir, "out_of_scope_questions.log");
+                    var logLine = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Môn học: {courseName} (ID: {courseId}) | Câu hỏi: {question}{Environment.NewLine}";
+                    await System.IO.File.AppendAllTextAsync(logFile, logLine);
+                }
+                catch
+                {
+                    // Bỏ qua lỗi ghi tệp để không làm gián đoạn cuộc hội thoại
+                }
+            }
+
+            var contextText = isOutOfScope
+                ? "Không có phân mảnh tài liệu nào phù hợp với câu hỏi này."
+                : string.Join("\n\n", matched.Select(c => $"[Phân mảnh: Chunk #{c.ChunkIndex} | DocId: {c.DocumentId} | File: {c.Document.OriginalName}]:\n{c.Content}"));
+
+            var citations = isOutOfScope
+                ? new List<string> { "Kiến thức ngoài tài liệu" }
+                : matched.Select(c => $"{c.Document.OriginalName}|/Documents/Detail/{c.DocumentId}").Distinct().ToList();
 
             var geminiSection = _configuration.GetSection("Gemini");
             var apiKeys = geminiSection.GetSection("ApiKeys").Get<List<string>>() ?? new List<string>();
@@ -568,6 +607,9 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                              $"Lịch sử hội thoại:\n---\n{historyText}\n---\n\n" +
                              $"Ngữ cảnh tài liệu:\n---\n{contextText}\n---\n\n" +
                              $"Câu hỏi: \"{question}\"\n\n" +
+                             "Quy định trích dẫn nguồn:\n" +
+                             "1. Chỉ khi câu trả lời sử dụng thông tin từ phân mảnh tài liệu trong phần Ngữ cảnh, bạn MỚI ĐƯỢC CHÈN DẤU TRÍCH DẪN NHỎ ở cuối câu hoặc ý tương ứng theo định dạng: [Chunk #X|DocId] (ví dụ: [Chunk #1|15]).\n" +
+                             "2. NẾU NỘI DUNG TRẢ LỜI LÀ KIẾN THỨC NỀN TẢNG BÊN NGOÀI (HOẶC BẠN NÓI TÀI LIỆU KHÔNG CÓ THÔNG TIN CỤ THỂ VỀ CÂU HỎI), BẠN TUYỆT ĐỐI KHÔNG ĐƯỢC CHÈN BẤT KỲ DẤU TRÍCH DẪN [Chunk #X] NÀO VÀ KHÔNG ĐƯỢC NHẮC ĐẾN SỐ CHUNK NÀO.\n\n" +
                              "Quy định ngôn ngữ câu trả lời:\n" +
                              "1. Hãy nhận biết ngôn ngữ của phần 'Ngữ cảnh tài liệu' ở trên.\n" +
                              "2. Nếu tài liệu bằng tiếng Anh (English), bạn bắt buộc phải trả lời hoàn toàn bằng tiếng Anh.\n" +
@@ -587,7 +629,10 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                         if (!string.IsNullOrEmpty(text))
                         {
                             var tokens = question.Length / 4 + text.Length / 4;
-                            return new ChatAnswerResult(text, citations, tokens, model);
+                            var finalCitations = (isOutOfScope || !text.Contains("[Chunk #"))
+                                ? new List<string> { "Kiến thức ngoài tài liệu" }
+                                : citations;
+                            return new ChatAnswerResult(text, finalCitations, tokens, model);
                         }
                     }
                     lastError = $"HTTP {response.StatusCode}";
