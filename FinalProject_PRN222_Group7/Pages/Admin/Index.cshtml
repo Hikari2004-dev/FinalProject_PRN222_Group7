@@ -9,7 +9,10 @@
         <h1 class="page-title">Quản trị hệ thống</h1>
         <p class="page-subtitle">Quản lý người dùng, thanh toán và cấu hình hệ thống</p>
     </div>
-    <div style="display:flex;gap:12px">
+    <div style="display:flex;gap:10px">
+        <button class="btn btn-secondary" style="background:#4b5563;border-color:#4b5563" onclick="document.getElementById('chunkSettingsModal').style.display='flex'">
+            ⚙️ Cấu hình Chunk
+        </button>
         <button class="btn btn-secondary" onclick="document.getElementById('bulkModal').style.display='flex'">
             ⚡ Tạo nhanh hàng loạt
         </button>
@@ -164,6 +167,31 @@
                 }
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- Chunk Settings Modal -->
+<div id="chunkSettingsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:420px;box-shadow:var(--shadow-lg)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+            <h3 style="font-size:1rem;font-weight:700">⚙️ Cấu hình phân mảnh (Chunking)</h3>
+            <button onclick="document.getElementById('chunkSettingsModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form method="post" asp-page-handler="UpdateChunkSettings">
+            @Html.AntiForgeryToken()
+            <div style="display:flex;flex-direction:column;gap:16px">
+                <div class="form-group">
+                    <label class="form-label">Độ dài ký tự tối đa của một Chunk</label>
+                    <input type="number" name="chunkSize" class="form-control" value="@Model.ChunkSize" min="100" max="5000" required />
+                    <span style="font-size:0.72rem;color:var(--text-muted);margin-top:6px;display:block">
+                        Khoảng khuyến nghị: 200 - 1000 ký tự. Hệ thống tự động căn lề bảo toàn ranh giới từ.
+                    </span>
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg w-full">Lưu cấu hình</button>
+            </div>
+        </form>
     </div>
 </div>
 
