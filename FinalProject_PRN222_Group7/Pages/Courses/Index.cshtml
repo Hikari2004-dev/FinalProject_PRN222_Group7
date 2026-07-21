@@ -194,12 +194,6 @@
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="UploadCourseId" id="docCourseId" />
                     <div style="display:flex;flex-direction:column;gap:12px">
-                        <div class="form-group">
-                            <label class="form-label">Chương học <span style="color:var(--text-muted);font-weight:400">(tùy chọn)</span></label>
-                            <select name="UploadChapterId" id="uploadChapterIdSelect" class="form-control">
-                                <option value="">-- Chưa phân chương --</option>
-                            </select>
-                        </div>
                         <div style="display:flex;align-items:center;gap:12px">
                             <div style="flex:1;border:2px dashed var(--border);border-radius:var(--radius-md);padding:16px;background:var(--bg-primary);cursor:pointer;transition:all 0.2s" onclick="document.getElementById('uploadedFileInput').click()" onmouseover="this.style.borderColor='var(--accent)';this.style.background='var(--accent-light)'" onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--bg-primary)'" id="uploadDropZone">
                                 <div style="display:flex;align-items:center;justify-content:center;gap:8px">
@@ -218,30 +212,12 @@
                         </button>
                     </div>
                 </form>
-                
-                <!-- Form tạo chương mới -->
-                <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-                    <form method="post" asp-page-handler="AddChapter">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="courseId" id="addChapterCourseId" />
-                        <div style="display:flex;gap:8px;align-items:flex-end">
-                            <div class="form-group" style="flex:1;margin:0">
-                                <label class="form-label" style="font-size:0.8rem">Tạo chương mới</label>
-                                <input type="text" name="name" placeholder="VD: Chương 1 - Giới thiệu" class="form-control" required />
-                            </div>
-                            <button type="submit" class="btn btn-secondary" style="height:42px;white-space:nowrap">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                                Thêm
-                            </button>
-                        </div>
-                    </form>
-                </div>
             </div>
         </div>
 
         <!-- Danh sách tài liệu -->
         <div style="margin-bottom:16px">
-            <h4 style="font-family:var(--font-sans);font-size:0.9rem;font-weight:600;margin-bottom:14px;color:var(--text-secondary)">📚 Danh sách chương & tài liệu</h4>
+            <h4 style="font-family:var(--font-sans);font-size:0.9rem;font-weight:600;margin-bottom:14px;color:var(--text-secondary)">📚 Kho tài liệu môn học</h4>
             <div id="docsList" style="max-height:350px;overflow-y:auto;padding-right:4px;">
                 <!-- Dùng JS render -->
             </div>
@@ -437,75 +413,9 @@
 
         let html = '<div style="display:flex;flex-direction:column;gap:20px;">';
 
-        data.chapters.forEach(ch => {
-            const chDocs = data.docs.filter(d => d.chapterId === ch.id);
-            
-            html += `
-                <div style="border:1px solid var(--border);border-radius:var(--radius-xl);padding:16px;background:var(--bg-elevated);">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:12px;gap:12px;">
-                        <h5 style="font-family:var(--font-sans);font-size:0.95rem;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;margin:0;">
-                            📂 ${ch.name}
-                        </h5>
-                        ${canManage ? `
-                        <form method="post" action="?handler=DeleteChapter" id="deleteChapterForm-${ch.id}" style="display:inline;margin:0;" onsubmit="return false;">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="chapterId" value="${ch.id}" />
-                            <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteChapter(${ch.id}, '${ch.name.replace(/'/g, "\\'")}')" style="padding:4px 10px;font-size:0.72rem">
-                                Xóa chương
-                            </button>
-                        </form>
-                        ` : ''}
-                    </div>
-                    <div style="display:flex;flex-direction:column;gap:4px;">
-            `;
-
-            if (chDocs.length === 0) {
-                html += `
-                    <div style="padding:12px;text-align:center;color:var(--text-muted);font-size:0.8rem;font-style:italic;">
-                        Chưa có tài liệu trong chương này.
-                    </div>
-                `;
-            } else {
-                chDocs.forEach(doc => {
-                    html += renderDocRow(doc, canManage);
-                });
-            }
-
-            html += `
-                    </div>
-                </div>
-            `;
+        data.docs.forEach(doc => {
+            html += renderDocRow(doc, canManage);
         });
-
-        const generalDocs = data.docs.filter(d => d.chapterId === null);
-        if (generalDocs.length > 0 || data.chapters.length === 0) {
-            html += `
-                <div style="border:1px solid var(--border);border-radius:var(--radius-xl);padding:16px;background:var(--bg-elevated);">
-                    <div style="margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:12px;">
-                        <h5 style="font-family:var(--font-sans);font-size:0.95rem;font-weight:700;color:var(--text-primary);margin:0;">
-                            📄 Tài liệu chung (Chưa phân chương)
-                        </h5>
-                    </div>
-                    <div style="display:flex;flex-direction:column;gap:4px;">
-            `;
-
-            if (generalDocs.length === 0) {
-                html += `
-                    <div style="padding:12px;text-align:center;color:var(--text-muted);font-size:0.8rem;font-style:italic;">
-                        Không có tài liệu chung nào.
-                    </div>
-                `;
-            } else {
-                generalDocs.forEach(doc => {
-                    html += renderDocRow(doc, canManage);
-                });
-            }
-
-            html += `
-                    </div>
-                </div>
-            `;
-        }
 
         html += '</div>';
         docsList.innerHTML = html;

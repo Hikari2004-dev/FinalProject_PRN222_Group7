@@ -532,9 +532,18 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                     .ToListAsync()
                 : new List<DocumentChunk>();
 
+            var stopWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "của", "môn", "cho", "theo", "như", "này", "đó", "nào", "được", "trong", "những", "hoặc",
+                "là", "gì", "các", "với", "đang", "bị", "bởi", "về", "hướng", "đối", "tượng", "này", "khi",
+                "sao", "tại", "thế", "làm", "ra", "đâu", "từ", "đến"
+            };
+
             var keywords = question.ToLower()
                 .Split(new[] { ' ', '?', ',', '.', '!', '-', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
-                .Where(w => w.Length > 2).Distinct().ToList();
+                .Where(w => w.Length > 1 && !stopWords.Contains(w))
+                .Distinct()
+                .ToList();
 
             var matched = dbChunks
                 .Select(c => new { Chunk = c, Score = keywords.Count(k => c.Content.ToLower().Contains(k)) })
@@ -545,8 +554,6 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                 .ToList();
 
             var isOutOfScope = !matched.Any();
-
-            if (!matched.Any()) matched = dbChunks.Take(2).ToList();
 
             if (isOutOfScope)
             {
@@ -571,9 +578,13 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                 }
             }
 
-            var contextText = string.Join("\n\n", matched.Select(c => $"[{c.Document.OriginalName}]: {c.Content}"));
-            var citations = matched.Select(c => c.Document.OriginalName).Distinct().ToList();
-            if (!citations.Any()) citations.Add("Kiến thức ngoài tài liệu");
+            var contextText = isOutOfScope
+                ? "Không có phân mảnh tài liệu nào phù hợp với câu hỏi này."
+                : string.Join("\n\n", matched.Select(c => $"[Phân mảnh: Chunk #{c.ChunkIndex} | DocId: {c.DocumentId} | File: {c.Document.OriginalName}]:\n{c.Content}"));
+
+            var citations = isOutOfScope
+                ? new List<string> { "Kiến thức ngoài tài liệu" }
+                : matched.Select(c => $"{c.Document.OriginalName}|/Documents/Detail/{c.DocumentId}").Distinct().ToList();
 
             var geminiSection = _configuration.GetSection("Gemini");
             var apiKeys = geminiSection.GetSection("ApiKeys").Get<List<string>>() ?? new List<string>();
@@ -596,6 +607,9 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                              $"Lịch sử hội thoại:\n---\n{historyText}\n---\n\n" +
                              $"Ngữ cảnh tài liệu:\n---\n{contextText}\n---\n\n" +
                              $"Câu hỏi: \"{question}\"\n\n" +
+                             "Quy định trích dẫn nguồn:\n" +
+                             "1. Chỉ khi câu trả lời sử dụng thông tin từ phân mảnh tài liệu trong phần Ngữ cảnh, bạn MỚI ĐƯỢC CHÈN DẤU TRÍCH DẪN NHỎ ở cuối câu hoặc ý tương ứng theo định dạng: [Chunk #X|DocId] (ví dụ: [Chunk #1|15]).\n" +
+                             "2. NẾU NỘI DUNG TRẢ LỜI LÀ KIẾN THỨC NỀN TẢNG BÊN NGOÀI (HOẶC BẠN NÓI TÀI LIỆU KHÔNG CÓ THÔNG TIN CỤ THỂ VỀ CÂU HỎI), BẠN TUYỆT ĐỐI KHÔNG ĐƯỢC CHÈN BẤT KỲ DẤU TRÍCH DẪN [Chunk #X] NÀO VÀ KHÔNG ĐƯỢC NHẮC ĐẾN SỐ CHUNK NÀO.\n\n" +
                              "Quy định ngôn ngữ câu trả lời:\n" +
                              "1. Hãy nhận biết ngôn ngữ của phần 'Ngữ cảnh tài liệu' ở trên.\n" +
                              "2. Nếu tài liệu bằng tiếng Anh (English), bạn bắt buộc phải trả lời hoàn toàn bằng tiếng Anh.\n" +
@@ -615,7 +629,10 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                         if (!string.IsNullOrEmpty(text))
                         {
                             var tokens = question.Length / 4 + text.Length / 4;
-                            return new ChatAnswerResult(text, citations, tokens, model);
+                            var finalCitations = (isOutOfScope || !text.Contains("[Chunk #"))
+                                ? new List<string> { "Kiến thức ngoài tài liệu" }
+                                : citations;
+                            return new ChatAnswerResult(text, finalCitations, tokens, model);
                         }
                     }
                     lastError = $"HTTP {response.StatusCode}";

@@ -101,7 +101,7 @@
             {
                 @foreach (var c in Model.Chunks)
                 {
-                    <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+                    <div id="chunk-@c.ChunkIndex" class="chunk-card" style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);padding:16px;transition:all 0.4s ease">
                         <div style="display:flex;justify-content:between;align-items:center;margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:8px">
                             <span class="badge badge-accent" style="font-family:var(--font-mono);font-size:0.7rem">Chunk #@c.ChunkIndex</span>
                             <span style="font-size:0.72rem;color:var(--text-muted)">Số từ: @c.TokenCount tokens | Trang: @c.PageNumber</span>
@@ -130,6 +130,21 @@
 
 @section Scripts {
 <script>
+    window.addEventListener('DOMContentLoaded', () => {
+        const hash = window.location.hash;
+        if (hash && hash.startsWith('#chunk-')) {
+            const el = document.querySelector(hash);
+            if (el) {
+                setTimeout(() => {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    el.style.border = '2px solid var(--accent)';
+                    el.style.boxShadow = '0 0 24px rgba(59, 130, 246, 0.45)';
+                    el.style.background = 'rgba(59, 130, 246, 0.08)';
+                }, 300);
+            }
+        }
+    });
+
     function confirmDeleteDoc() {
         showConfirm(
             'Xóa tài liệu',

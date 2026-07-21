@@ -210,7 +210,7 @@ namespace FinalProject_PRN222_Group7.Pages.Courses
                 FileSizeBytes = UploadedFile.Length,
                 ContentType = UploadedFile.ContentType,
                 CourseId = UploadCourseId,
-                ChapterId = UploadChapterId,
+                ChapterId = null,
                 UploadedById = user.Id,
                 UploadedByUserEmail = user.Email ?? "",
                 Status = DocumentStatus.Uploaded

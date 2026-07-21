@@ -171,8 +171,8 @@
 </div>
 
 <!-- Chunk Settings Modal -->
-<div id="chunkSettingsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center">
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:420px;box-shadow:var(--shadow-lg)">
+<div id="chunkSettingsModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:999999;align-items:center;justify-content:center">
+    <div style="background:#ffffff !important;border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:420px;box-shadow:0 20px 40px rgba(15,23,42,0.25)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
             <h3 style="font-size:1rem;font-weight:700">⚙️ Cấu hình phân mảnh (Chunking)</h3>
             <button onclick="document.getElementById('chunkSettingsModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer">
@@ -197,7 +197,7 @@
 
 <!-- Create Single User Modal -->
 <div id="createUserModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px);z-index:200;align-items:center;justify-content:center">
-    <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-2xl);padding:28px;width:100%;max-width:460px;box-shadow:var(--shadow-xl);animation:modalIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)">
+    <div style="background:#ffffff !important;border:1px solid var(--border);border-radius:var(--radius-2xl);padding:28px;width:100%;max-width:460px;box-shadow:var(--shadow-xl);animation:modalIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
             <h3 style="font-family:var(--font-sans);font-size:1.15rem;font-weight:700">Thêm người dùng mới</h3>
             <button onclick="document.getElementById('createUserModal').style.display='none'" style="background:var(--bg-elevated);border:none;color:var(--text-muted);cursor:pointer;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center">
@@ -234,7 +234,7 @@
 
 <!-- Bulk Create Users Modal -->
 <div id="bulkModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px);z-index:200;align-items:center;justify-content:center">
-    <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-2xl);padding:28px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-xl);animation:modalIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)">
+    <div style="background:#ffffff !important;border:1px solid var(--border);border-radius:var(--radius-2xl);padding:28px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-xl);animation:modalIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
             <h3 style="font-family:var(--font-sans);font-size:1.15rem;font-weight:700">⚡ Tạo tài khoản hàng loạt</h3>
             <button onclick="document.getElementById('bulkModal').style.display='none'" style="background:var(--bg-elevated);border:none;color:var(--text-muted);cursor:pointer;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center">

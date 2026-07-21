@@ -62,6 +62,92 @@
             background: none;
             padding: 0;
         }
+
+        .typing-bubble {
+            padding: 12px 18px !important;
+            background: rgba(139, 92, 246, 0.08) !important;
+            border: 1px solid rgba(139, 92, 246, 0.25) !important;
+            border-radius: 16px !important;
+        }
+
+        .ai-thinking-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .ai-thinking-dots {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .ai-thinking-dots span {
+            width: 7px;
+            height: 7px;
+            background: #8b5cf6;
+            border-radius: 50%;
+            display: inline-block;
+            animation: thinkingBounce 1.4s infinite ease-in-out both;
+        }
+
+        .ai-thinking-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .ai-thinking-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+        @@keyframes thinkingBounce {
+            0%, 80%, 100% { transform: scale(0.4); opacity: 0.4; }
+            40% { transform: scale(1.15); opacity: 1; }
+        }
+
+        .ai-thinking-text {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .citation-pill.citation-link {
+            background: rgba(59, 130, 246, 0.12);
+            color: #3b82f6;
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            transition: all 0.2s ease;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .citation-pill.citation-link:hover {
+            background: rgba(59, 130, 246, 0.25);
+            border-color: #3b82f6;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+        }
+
+        .inline-cite-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            line-height: 1;
+            padding: 2px 7px;
+            margin: 0 3px;
+            border-radius: 4px;
+            background: rgba(139, 92, 246, 0.12);
+            color: #8b5cf6;
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            text-decoration: none !important;
+            vertical-align: super;
+            transition: all 0.15s ease;
+        }
+
+        .inline-cite-tag:hover {
+            background: #8b5cf6;
+            color: #ffffff;
+            border-color: #8b5cf6;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);
+        }
     </style>
 }
 
@@ -171,7 +257,17 @@
                                     <span style="font-size:0.75rem;color:var(--text-muted);font-weight:500">Nguồn:</span>
                                     @foreach (var cite in msg.SourceCitations.Split(',', StringSplitOptions.RemoveEmptyEntries))
                                     {
-                                        <span class="citation-pill">@cite.Trim()</span>
+                                        var parts = cite.Split('|');
+                                        var label = parts[0].Trim();
+                                        var link = parts.Length > 1 ? parts[1].Trim() : null;
+                                        if (!string.IsNullOrEmpty(link))
+                                        {
+                                            <a href="@link" target="_blank" class="citation-pill citation-link" style="text-decoration:none">📄 @label ↗</a>
+                                        }
+                                        else
+                                        {
+                                            <span class="citation-pill">@label</span>
+                                        }
                                     }
                                 </div>
                             }
@@ -270,7 +366,7 @@
             var typingDiv = document.createElement('div');
             typingDiv.className = 'message';
             typingDiv.id = 'typingIndicator';
-            typingDiv.innerHTML = '<div class="message-avatar">AI</div><div class="message-bubble"><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>';
+            typingDiv.innerHTML = '<div class="message-avatar">AI</div><div class="message-bubble typing-bubble"><div class="ai-thinking-box"><div class="ai-thinking-dots"><span></span><span></span><span></span></div><span class="ai-thinking-text">AI đang đọc tài liệu và suy nghĩ trả lời...</span></div></div>';
             area.appendChild(typingDiv);
             area.scrollTop = area.scrollHeight;
 
@@ -299,6 +395,20 @@
             }
         }
 
+        function formatInlineCitations(text) {
+            if (!text) return '';
+            return text.replace(/\[Chunk\s*#?(\d+)(?:\|(\d+))?\]/gi, function(match, chunkNum, docId) {
+                var href = docId ? '/Documents/Detail/' + docId + '#chunk-' + chunkNum : '#';
+                return '<a href="' + href + '" target="_blank" class="inline-cite-tag" title="Xem phân mảnh Chunk #' + chunkNum + '">Chunk #' + chunkNum + ' ↗</a>';
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.message:not(.user) .message-bubble').forEach(function(el) {
+                el.innerHTML = formatInlineCitations(el.innerHTML);
+            });
+        });
+
         function appendMessage(role, content, citations) {
             var area = document.getElementById('messagesArea');
             var div = document.createElement('div');
@@ -308,11 +418,21 @@
             var citeHtml = '';
             if (citations && citations.length > 0) {
                 citeHtml = '<div class="message-citations"><span style="font-size:0.75rem;color:var(--text-muted);font-weight:500">Nguồn:</span>';
-                citations.forEach(function(c) { citeHtml += '<span class="citation-pill">' + c + '</span>'; });
+                citations.forEach(function(c) {
+                    var parts = c.split('|');
+                    var label = parts[0].trim();
+                    var link = parts.length > 1 ? parts[1].trim() : null;
+                    if (link) {
+                        citeHtml += '<a href="' + link + '" target="_blank" class="citation-pill citation-link" style="text-decoration:none">📄 ' + escapeHtml(label) + ' ↗</a>';
+                    } else {
+                        citeHtml += '<span class="citation-pill">' + escapeHtml(label) + '</span>';
+                    }
+                });
                 citeHtml += '</div>';
             }
 
-            var renderedContent = role === 'user' ? escapeHtml(content) : (typeof marked !== 'undefined' ? marked.parse(content) : content);
+            var rawRendered = role === 'user' ? escapeHtml(content) : (typeof marked !== 'undefined' ? marked.parse(content) : content);
+            var renderedContent = role === 'user' ? rawRendered : formatInlineCitations(rawRendered);
             div.innerHTML = '<div class="message-avatar">' + avatarText + '</div><div><div class="message-bubble">' + renderedContent + '</div>' + citeHtml + '</div>';
             area.appendChild(div);
             area.scrollTop = area.scrollHeight;

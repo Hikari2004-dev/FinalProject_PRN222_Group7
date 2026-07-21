@@ -24,6 +24,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         Task<IEnumerable<int>> GetUserAttemptedQuizIdsAsync(string userId);
         Task<IEnumerable<QuizAttempt>> GetUserCompletedAttemptsAsync(string userId);
         Task<QuizGenerationResult> GenerateQuestionsFromDocumentAsync(int documentId, int courseId, int numQuestions, IEnumerable<string> existingQuestionContents);
+        Task<QuizGenerationResult> GenerateQuestionsFromCourseAsync(int courseId, int numQuestions, IEnumerable<string> existingQuestionContents);
     }
 
     public record QuizGenerationResult(List<Question> Questions, int TokensUsed, string? ModelName);
@@ -180,6 +181,77 @@ namespace FinalProject_PRN222_Group7.BLL.Services
 
                 var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
                 var prompt = $"Dựa vào nội dung tài liệu học tập sau đây:\n\n{contextText}\n\n" +
+                             $"Hãy tạo ra đúng {numQuestions} câu hỏi trắc nghiệm khách quan mới để kiểm tra kiến thức.\n" +
+                             $"Mỗi câu hỏi phải có 4 phương án lựa chọn A, B, C, D và có đáp án đúng kèm theo lời giải thích ngắn gọn.\n\n" +
+                             $"RÀNG BUỘC: Không tạo câu hỏi trùng với danh sách sau:\n" +
+                             $"{(existingList.Any() ? string.Join("\n- ", existingList.Take(150)) : "(Chưa có câu hỏi nào)")}\n\n" +
+                             $"Trả về JSON Array với các trường: content, optionA, optionB, optionC, optionD, correctAnswer (ký tự A/B/C/D), explanation.\n" +
+                             $"Chỉ trả về JSON thô, không bọc trong ```json.";
+
+                var payload = new
+                {
+                    contents = new[] { new { parts = new[] { new { text = prompt } } } },
+                    generationConfig = new { responseMimeType = "application/json" }
+                };
+
+                try
+                {
+                    var response = await client.PostAsJsonAsync(url, payload);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var result = await response.Content.ReadFromJsonAsync<GeminiGenerateResponse>();
+                        var jsonText = result?.Candidates?.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text;
+                        if (!string.IsNullOrEmpty(jsonText))
+                        {
+                            var questions = JsonSerializer.Deserialize<List<Question>>(jsonText, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<Question>();
+                            return new QuizGenerationResult(questions, Math.Max(1, contextText.Length / 4 + jsonText.Length / 4), model);
+                        }
+                    }
+                    lastError = $"HTTP {response.StatusCode}";
+                    retries++;
+                }
+                catch (Exception ex) { lastError = ex.Message; retries++; }
+            }
+
+            return new QuizGenerationResult(GenerateMockQuestions(numQuestions), Math.Max(1, contextText.Length / 4), "mock-fallback");
+        }
+
+        public async Task<QuizGenerationResult> GenerateQuestionsFromCourseAsync(int courseId, int numQuestions, IEnumerable<string> existingQuestionContents)
+        {
+            var chunks = await _context.DocumentChunks
+                .Where(c => c.Document.CourseId == courseId && c.Document.Status == DocumentStatus.Indexed)
+                .OrderBy(c => c.DocumentId)
+                .ThenBy(c => c.ChunkIndex)
+                .Select(c => c.Content)
+                .Take(50)
+                .ToListAsync();
+
+            var contextText = string.Join("\n", chunks);
+            if (string.IsNullOrWhiteSpace(contextText))
+            {
+                return new QuizGenerationResult(GenerateMockQuestions(numQuestions), 100, "mock-fallback");
+            }
+
+            var existingList = existingQuestionContents.ToList();
+
+            var geminiSection = _configuration.GetSection("Gemini");
+            var apiKeys = geminiSection.GetSection("ApiKeys").Get<List<string>>() ?? new List<string>();
+            var model = geminiSection.GetValue<string>("Model") ?? "gemini-2.0-flash";
+
+            if (!apiKeys.Any())
+                return new QuizGenerationResult(GenerateMockQuestions(numQuestions), Math.Max(1, contextText.Length / 4), "mock-fallback");
+
+            var client = _httpClientFactory.CreateClient();
+            var retries = 0;
+            var lastError = string.Empty;
+
+            while (retries < apiKeys.Count)
+            {
+                var apiKey = GetNextApiKey(apiKeys);
+                if (string.IsNullOrEmpty(apiKey) || apiKey.Contains("YOUR-")) { retries++; continue; }
+
+                var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
+                var prompt = $"Dựa vào tổng hợp kho tài liệu học tập của môn học sau đây:\n\n{contextText}\n\n" +
                              $"Hãy tạo ra đúng {numQuestions} câu hỏi trắc nghiệm khách quan mới để kiểm tra kiến thức.\n" +
                              $"Mỗi câu hỏi phải có 4 phương án lựa chọn A, B, C, D và có đáp án đúng kèm theo lời giải thích ngắn gọn.\n\n" +
                              $"RÀNG BUỘC: Không tạo câu hỏi trùng với danh sách sau:\n" +
@@ -947,6 +1019,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         Task<IEnumerable<QuestionBankItem>> SaveQuestionsToBankAsync(int courseId, int? chapterId, int? documentId, IEnumerable<QuestionBankItem> items);
         Task UpdateQuestionAsync(QuestionBankItem item);
         Task DeleteQuestionAsync(int id);
+        Task DeleteBatchQuestionsAsync(int courseId, DateTime batchCreatedAt);
         Task<Quiz> GenerateRandomQuizAsync(int courseId, int? chapterId, int numQuestions, string title);
         Task<Quiz> GenerateRandomQuizFromMultipleChaptersAsync(int courseId, List<int>? chapterIds, int numQuestions, string title);
     }
@@ -1014,6 +1087,21 @@ namespace FinalProject_PRN222_Group7.BLL.Services
 
             _context.QuestionBankItems.Remove(item);
             await _context.SaveChangesAsync();
+        }
+
+        public async Task DeleteBatchQuestionsAsync(int courseId, DateTime batchCreatedAt)
+        {
+            var minTime = batchCreatedAt.AddSeconds(-5);
+            var maxTime = batchCreatedAt.AddSeconds(5);
+            var items = await _context.QuestionBankItems
+                .Where(q => q.CourseId == courseId && q.CreatedAt >= minTime && q.CreatedAt <= maxTime)
+                .ToListAsync();
+
+            if (items.Any())
+            {
+                _context.QuestionBankItems.RemoveRange(items);
+                await _context.SaveChangesAsync();
+            }
         }
 
         public async Task<Quiz> GenerateRandomQuizAsync(int courseId, int? chapterId, int numQuestions, string title)

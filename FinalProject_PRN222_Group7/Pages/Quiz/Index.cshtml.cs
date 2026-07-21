@@ -93,7 +93,7 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
             }
         }
 
-        public async Task<IActionResult> OnPostGenerateQuizAsync(int documentId, int numQuestions, string title)
+        public async Task<IActionResult> OnPostGenerateQuizAsync(int courseId, int numQuestions)
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return new JsonResult(new { success = false, error = "Vui lòng đăng nhập lại." });
@@ -105,10 +105,11 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
                 return new JsonResult(new { success = false, error = "Bạn không có quyền thực hiện chức năng này." });
             }
 
-            var doc = await _docService.GetDocumentAsync(documentId);
+            var course = await _courseService.GetCourseAsync(courseId);
+            if (course == null || (!roles.Contains("Admin") && course.LecturerId != user.Id))
+                return new JsonResult(new { success = false, error = "Môn học không tồn tại hoặc bạn không có quyền quản lý môn này." });
 
-            if (doc == null || doc.Course.LecturerId != user.Id)
-                return new JsonResult(new { success = false, error = "Tài liệu không tồn tại hoặc bạn không có quyền sở hữu môn học này." });
+            int addedCount = 0;
 
             var usageResult = await _aiUsageGate.ExecuteAsync(
                 user.Id,
@@ -116,10 +117,10 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
                 "quiz.generate",
                 async () =>
                 {
-                    var existingContents = (await _questionBankService.GetQuestionsByCourseAsync(doc.CourseId))
+                    var existingContents = (await _questionBankService.GetQuestionsByCourseAsync(courseId))
                         .Select(q => q.Content).Distinct();
 
-                    var generated = await _quizService.GenerateQuestionsFromDocumentAsync(documentId, doc.CourseId, numQuestions, existingContents);
+                    var generated = await _quizService.GenerateQuestionsFromCourseAsync(courseId, numQuestions, existingContents);
                     var questions = generated.Questions;
 
                     var bankItems = questions.Select(q => new QuestionBankItem
@@ -133,41 +134,30 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
                         Explanation = q.Explanation
                     }).ToList();
 
-                    await _questionBankService.SaveQuestionsToBankAsync(
-                        doc.CourseId,
-                        doc.ChapterId,
-                        documentId,
+                    var saved = await _questionBankService.SaveQuestionsToBankAsync(
+                        courseId,
+                        null,
+                        null,
                         bankItems
                     );
+                    addedCount = saved.Count();
 
-                    var quiz = new DAL.Entities.Quiz
-                    {
-                        Title = title,
-                        CourseId = doc.CourseId,
-                        DocumentId = documentId,
-                        IsAiGenerated = true,
-                        TimeLimit = numQuestions * 2,
-                        TotalQuestions = questions.Count,
-                        CreatedAt = DateTime.UtcNow
-                    };
-
-                    await _quizService.CreateQuizAsync(quiz, questions);
                     return new AiUsageExecutionPayload<bool>(true, generated.TokensUsed, generated.ModelName);
                 },
-                $"quiz:{documentId}:{numQuestions}:{Guid.NewGuid():N}");
+                $"quiz:{courseId}:{numQuestions}:{Guid.NewGuid():N}");
 
             if (!usageResult.Success)
             {
-                _logger.LogWarning("AI quiz generation failed for document {DocumentId}: {Error}", documentId, usageResult.ErrorMessage);
-                return new JsonResult(new { success = false, error = usageResult.ErrorMessage ?? "Không thể tạo quiz bằng AI." });
+                _logger.LogWarning("AI question generation failed for course {CourseId}: {Error}", courseId, usageResult.ErrorMessage);
+                return new JsonResult(new { success = false, error = usageResult.ErrorMessage ?? "Không thể tạo câu hỏi AI." });
             }
 
-            return new JsonResult(new { success = true });
+            return new JsonResult(new { success = true, count = addedCount });
         }
 
 
         // ============ ADDITIONAL HANDLERS FOR QUESTION BANK & RANDOM QUIZ ============
-        public async Task<IActionResult> OnGetBankQuestionsAsync(int courseId, int? chapterId)
+        public async Task<IActionResult> OnGetBankQuestionsAsync(int courseId)
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return new JsonResult(new { success = false, error = "Vui lòng đăng nhập lại." });
@@ -179,20 +169,49 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
             if (!isAdmin && course.LecturerId != user.Id)
                 return new JsonResult(new { success = false, error = "Bạn không có quyền quản lý kho câu hỏi của môn học này." });
 
-            var questions = await _questionBankService.GetQuestionsByCourseAsync(courseId, chapterId);
-            var result = questions.Select(q => new
-            {
-                id = q.Id,
-                content = q.Content,
-                optionA = q.OptionA,
-                optionB = q.OptionB,
-                optionC = q.OptionC,
-                optionD = q.OptionD,
-                correctAnswer = q.CorrectAnswer.ToString(),
-                explanation = q.Explanation
-            });
+            var questions = (await _questionBankService.GetQuestionsByCourseAsync(courseId)).ToList();
+            
+            var batches = questions
+                .GroupBy(q => new DateTime(q.CreatedAt.Year, q.CreatedAt.Month, q.CreatedAt.Day, q.CreatedAt.Hour, q.CreatedAt.Minute, q.CreatedAt.Second))
+                .OrderByDescending(g => g.Key)
+                .Select(g => new
+                {
+                    batchTime = g.Key.AddHours(7).ToString("dd/MM/yyyy HH:mm:ss"),
+                    rawBatchTime = g.Key.ToString("o"),
+                    count = g.Count(),
+                    items = g.Select(q => new
+                    {
+                        id = q.Id,
+                        content = q.Content,
+                        optionA = q.OptionA,
+                        optionB = q.OptionB,
+                        optionC = q.OptionC,
+                        optionD = q.OptionD,
+                        correctAnswer = q.CorrectAnswer.ToString(),
+                        explanation = q.Explanation
+                    })
+                });
 
-            return new JsonResult(new { success = true, questions = result });
+            return new JsonResult(new { success = true, batches = batches, total = questions.Count });
+        }
+
+        public async Task<IActionResult> OnPostDeleteBatchQuestionsAsync(int courseId, string rawBatchTime)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return new JsonResult(new { success = false, error = "Vui lòng đăng nhập lại." });
+
+            var course = await _courseService.GetCourseAsync(courseId);
+            var isAdmin = User.IsInRole("Admin");
+            if (!isAdmin && (course == null || course.LecturerId != user.Id))
+                return new JsonResult(new { success = false, error = "Bạn không có quyền xóa câu hỏi này." });
+
+            if (DateTime.TryParse(rawBatchTime, null, System.Globalization.DateTimeStyles.RoundtripKind, out var batchDt))
+            {
+                await _questionBankService.DeleteBatchQuestionsAsync(courseId, batchDt);
+                return new JsonResult(new { success = true });
+            }
+
+            return new JsonResult(new { success = false, error = "Thời gian đợt tạo không hợp lệ." });
         }
 
         public async Task<IActionResult> OnPostEditBankQuestionAsync(int id, string content, string optionA, string optionB, string optionC, string optionD, string correctAnswer, string? explanation)
@@ -250,15 +269,10 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
             var course = await _courseService.GetCourseAsync(courseId);
             if (course == null) return new JsonResult(new { success = false, error = "Môn học không tồn tại." });
 
-            // Normalize: null/empty chapterIds = all chapters
-            var hasChapterFilter = chapterIds != null && chapterIds.Count > 0;
-
             var bankQuestions = await _questionBankService.GetQuestionsByCourseAsync(courseId);
-            var count = bankQuestions.Count(q => !hasChapterFilter || chapterIds!.Contains(q.ChapterId ?? -1));
-
-            if (count == 0)
+            if (!bankQuestions.Any())
             {
-                return new JsonResult(new { success = false, error = "Kho câu hỏi của môn/chương học này hiện đang trống. Giảng viên cần tạo câu hỏi trước!" });
+                return new JsonResult(new { success = false, error = "Kho câu hỏi của môn học này hiện đang trống. Giảng viên cần tạo câu hỏi trước!" });
             }
 
             if (numQuestions <= 0)
@@ -266,7 +280,7 @@ namespace FinalProject_PRN222_Group7.Pages.Quiz
                 return new JsonResult(new { success = false, error = "Số lượng câu hỏi phải lớn hơn 0." });
             }
 
-            var quiz = await _questionBankService.GenerateRandomQuizFromMultipleChaptersAsync(courseId, hasChapterFilter ? chapterIds : null, numQuestions, title);
+            var quiz = await _questionBankService.GenerateRandomQuizFromMultipleChaptersAsync(courseId, null, numQuestions, title);
             return new JsonResult(new { success = true, quizId = quiz.Id });
         }
 
