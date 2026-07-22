@@ -150,16 +150,16 @@ namespace FinalProject_PRN222_Group7.Pages.Admin
             return RedirectToPage();
         }
 
-        public async Task<IActionResult> OnPostEditUserAsync(string editUserId, string role, bool isActive)
+        public async Task<IActionResult> OnPostEditUserAsync(string editUserId, bool isActive)
         {
             var currentUser = await _userManager.GetUserAsync(User);
             if (currentUser == null) return Unauthorized();
 
-            var result = await _userService.EditUserAsync(currentUser.Id, editUserId, role, isActive);
+            var result = await _userService.EditUserAsync(currentUser.Id, editUserId, isActive);
 
             if (result.Succeeded)
             {
-                TempData["Success"] = $"Đã cập nhật vai trò {role} cho người dùng thành công.";
+                TempData["Success"] = "Đã cập nhật trạng thái tài khoản người dùng thành công.";
             }
             else
             {

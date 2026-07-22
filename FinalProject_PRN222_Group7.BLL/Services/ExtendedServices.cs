@@ -1237,7 +1237,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
     {
         Task<IdentityResult> CreateSingleUserAsync(string fullName, string email, string role, string loginBaseUrl);
         Task<UserBulkImportResult> CreateBulkUsersAsync(IEnumerable<UserBulkRow> rows, string loginBaseUrl);
-        Task<IdentityResult> EditUserAsync(string currentUserId, string editUserId, string role, bool isActive);
+        Task<IdentityResult> EditUserAsync(string currentUserId, string editUserId, bool isActive);
     }
 
     public record UserBulkRow(string FullName, string Email, string Role);
@@ -1347,11 +1347,11 @@ namespace FinalProject_PRN222_Group7.BLL.Services
             return new UserBulkImportResult(successCount, errors);
         }
 
-        public async Task<IdentityResult> EditUserAsync(string currentUserId, string editUserId, string role, bool isActive)
+        public async Task<IdentityResult> EditUserAsync(string currentUserId, string editUserId, bool isActive)
         {
             if (currentUserId == editUserId)
             {
-                return IdentityResult.Failed(new IdentityError { Description = "Bạn không thể tự thay đổi vai trò của chính mình." });
+                return IdentityResult.Failed(new IdentityError { Description = "Bạn không thể tự thay đổi trạng thái của chính mình." });
             }
 
             var user = await _userManager.FindByIdAsync(editUserId);
@@ -1367,21 +1367,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
             }
 
             user.IsActive = isActive;
-            var updateResult = await _userManager.UpdateAsync(user);
-            if (!updateResult.Succeeded)
-            {
-                return updateResult;
-            }
-
-            var currentRoles = await _userManager.GetRolesAsync(user);
-            var removeResult = await _userManager.RemoveFromRolesAsync(user, currentRoles);
-            if (!removeResult.Succeeded)
-            {
-                return removeResult;
-            }
-
-            var addResult = await _userManager.AddToRoleAsync(user, role);
-            return addResult;
+            return await _userManager.UpdateAsync(user);
         }
 
         private string GenerateRandomPassword()
