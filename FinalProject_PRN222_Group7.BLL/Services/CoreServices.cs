@@ -20,6 +20,7 @@ namespace FinalProject_PRN222_Group7.BLL.Services
         Task<IEnumerable<DocumentChunk>> GetChunksByDocumentIdAsync(int docId);
         Task<IEnumerable<Document>> GetIndexedDocumentsAsync(string? lecturerId = null);
         Task<IEnumerable<DocumentChunk>> GetIndexedChunksByCourseAsync(int courseId);
+        Task<IEnumerable<Document>> GetStudentCourseDocumentsAsync(string studentUserId);
     }
 
     public class DocumentService : IDocumentService
@@ -300,6 +301,25 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                 .Include(c => c.Document)
                 .Where(c => c.Document.CourseId == courseId && c.Document.Status == DocumentStatus.Indexed)
                 .ToListAsync();
+
+        public async Task<IEnumerable<Document>> GetStudentCourseDocumentsAsync(string studentUserId)
+        {
+            var studentCourseIds = await _context.ChatSessions
+                .Where(s => s.UserId == studentUserId && s.CourseId.HasValue)
+                .Select(s => s.CourseId!.Value)
+                .Union(_context.QuizAttempts
+                    .Where(a => a.UserId == studentUserId)
+                    .Select(a => a.Quiz.CourseId))
+                .Distinct()
+                .ToListAsync();
+
+            return await _context.Documents
+                .Include(d => d.Course)
+                .Include(d => d.UploadedBy)
+                .Where(d => studentCourseIds.Contains(d.CourseId))
+                .OrderByDescending(d => d.UploadedAt)
+                .ToListAsync();
+        }
     }
 
     // ============ COURSE SERVICE ============
@@ -545,13 +565,31 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                 .Distinct()
                 .ToList();
 
-            var matched = dbChunks
+            var matchedPrimary = dbChunks
                 .Select(c => new { Chunk = c, Score = keywords.Count(k => c.Content.ToLower().Contains(k)) })
                 .Where(x => x.Score > 0)
                 .OrderByDescending(x => x.Score)
                 .Take(4)
                 .Select(x => x.Chunk)
                 .ToList();
+
+            var matched = new List<DocumentChunk>();
+            foreach (var primaryChunk in matchedPrimary)
+            {
+                if (!matched.Any(x => x.Id == primaryChunk.Id))
+                {
+                    matched.Add(primaryChunk);
+                }
+
+                // Automatically include contiguous next chunk if available in dbChunks so context is never cut off
+                var nextChunk = dbChunks.FirstOrDefault(c => c.DocumentId == primaryChunk.DocumentId && c.ChunkIndex == primaryChunk.ChunkIndex + 1);
+                if (nextChunk != null && !matched.Any(x => x.Id == nextChunk.Id))
+                {
+                    matched.Add(nextChunk);
+                }
+            }
+
+            matched = matched.OrderBy(c => c.DocumentId).ThenBy(c => c.ChunkIndex).ToList();
 
             var isOutOfScope = !matched.Any();
 
@@ -607,9 +645,10 @@ namespace FinalProject_PRN222_Group7.BLL.Services
                              $"Lịch sử hội thoại:\n---\n{historyText}\n---\n\n" +
                              $"Ngữ cảnh tài liệu:\n---\n{contextText}\n---\n\n" +
                              $"Câu hỏi: \"{question}\"\n\n" +
-                             "Quy định trích dẫn nguồn:\n" +
-                             "1. Chỉ khi câu trả lời sử dụng thông tin từ phân mảnh tài liệu trong phần Ngữ cảnh, bạn MỚI ĐƯỢC CHÈN DẤU TRÍCH DẪN NHỎ ở cuối câu hoặc ý tương ứng theo định dạng: [Chunk #X|DocId] (ví dụ: [Chunk #1|15]).\n" +
-                             "2. NẾU NỘI DUNG TRẢ LỜI LÀ KIẾN THỨC NỀN TẢNG BÊN NGOÀI (HOẶC BẠN NÓI TÀI LIỆU KHÔNG CÓ THÔNG TIN CỤ THỂ VỀ CÂU HỎI), BẠN TUYỆT ĐỐI KHÔNG ĐƯỢC CHÈN BẤT KỲ DẤU TRÍCH DẪN [Chunk #X] NÀO VÀ KHÔNG ĐƯỢC NHẮC ĐẾN SỐ CHUNK NÀO.\n\n" +
+                             "Quy định trích dẫn nguồn và tổng hợp câu trả lời:\n" +
+                             "1. Bạn PHẢI ĐỌC TẤT CẢ PHÂN MẢNH TÀI LIỆU được cung cấp (kể cả các phân mảnh liên kề tiếp nối) để tổng hợp ra câu trả lời ĐẦY ĐỦ VÀ TRỌN VẸN CHO NỘI DUNG/NGUYÊN NHÂN. TUYỆT ĐỐI KHÔNG ĐƯỢC ĐƯA RA CÁC CÂU LÝ DO NHƯ 'nội dung bị ngắt quãng', 'chưa hiển thị đầy đủ', HAY 'bị dừng lại ở cụm từ...'. Hãy nối liền nội dung của các phân mảnh liên kề để trả lời đầy đủ, chuyên nghiệp cho người học.\n" +
+                             "2. Chỉ khi câu trả lời sử dụng thông tin từ phân mảnh tài liệu trong phần Ngữ cảnh, bạn MỚI ĐƯỢC CHÈN DẤU TRÍCH DẪN ở cuối câu hoặc ý tương ứng theo định dạng: [Chunk #X|DocId|quote: Trích nguyên văn từ tài liệu] (ví dụ: [Chunk #3|15|quote: Các tổ chức độc quyền xuất hiện do những nguyên nhân chủ yếu sau]). Đoạn 'quote' BẮT BUỘC phải là chuỗi từ ngữ NGUYÊN VĂN từ tài liệu.\n" +
+                             "3. NẾU NỘI DUNG TRẢ LỜI LÀ KIẾN THỨC NỀN TẢNG BÊN NGOÀI (HOẶC BẠN NÓI TÀI LIỆU KHÔNG CÓ THÔNG TIN CỤ THỂ VỀ CÂU HỎI), BẠN TUYỆT ĐỐI KHÔNG ĐƯỢC CHÈN BẤT KỲ DẤU TRÍCH DẪN [Chunk #X] NÀO VÀ KHÔNG ĐƯỢC NHẮC ĐẾN SỐ CHUNK NÀO.\n\n" +
                              "Quy định ngôn ngữ câu trả lời:\n" +
                              "1. Hãy nhận biết ngôn ngữ của phần 'Ngữ cảnh tài liệu' ở trên.\n" +
                              "2. Nếu tài liệu bằng tiếng Anh (English), bạn bắt buộc phải trả lời hoàn toàn bằng tiếng Anh.\n" +

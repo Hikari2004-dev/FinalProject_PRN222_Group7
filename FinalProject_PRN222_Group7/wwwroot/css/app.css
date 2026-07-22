@@ -1006,3 +1006,63 @@ td.text-primary { color: var(--text-primary); font-weight: 500; }
     .topbar-tabs { gap: 0; }
     .topbar-tab span { display: none; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   INLINE CITATION TAGS & HIGHLIGHTED CHUNKS
+   ════════════════════════════════════════════════════════════════════════ */
+.inline-cite-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-left: 3px solid #6366f1;
+    color: #4f46e5;
+    padding: 2px 8px;
+    margin: 0 2px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    vertical-align: middle;
+}
+.inline-cite-tag:hover {
+    background: #6366f1;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+    transform: translateY(-1px);
+}
+
+.chunk-card {
+    border-left: 5px solid var(--accent) !important;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.chunk-card.cited-chunk-active {
+    border: 2px solid #6366f1 !important;
+    border-left: 8px solid #6366f1 !important;
+    background: rgba(99, 102, 241, 0.12) !important;
+    box-shadow: 0 0 25px rgba(99, 102, 241, 0.45), 0 0 0 4px rgba(99, 102, 241, 0.2) !important;
+    transform: scale(1.01);
+}
+
+.chunk-card.cited-chunk-active p {
+    background: rgba(254, 240, 138, 0.25) !important;
+    border-left: 4px solid #eab308 !important;
+    padding: 12px 16px !important;
+    border-radius: 8px !important;
+    color: var(--text-primary) !important;
+    font-weight: 500 !important;
+}
+
+.cited-text-line {
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    background: #fef08a !important;
+    border-bottom: 4px double #4f46e5 !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.3) !important;
+    display: inline !important;
+}

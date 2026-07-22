@@ -101,12 +101,12 @@
             {
                 @foreach (var c in Model.Chunks)
                 {
-                    <div id="chunk-@c.ChunkIndex" class="chunk-card" style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);padding:16px;transition:all 0.4s ease">
-                        <div style="display:flex;justify-content:between;align-items:center;margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:8px">
-                            <span class="badge badge-accent" style="font-family:var(--font-mono);font-size:0.7rem">Chunk #@c.ChunkIndex</span>
+                    <div id="chunk-@c.ChunkIndex" class="chunk-card" style="background:var(--bg-elevated);border:1px solid var(--border);border-left:5px solid var(--accent);border-radius:var(--radius);padding:16px;transition:all 0.4s ease">
+                        <div class="chunk-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:8px">
+                            <span class="badge badge-accent" style="font-family:var(--font-mono);font-size:0.75rem;font-weight:700">Chunk #@c.ChunkIndex</span>
                             <span style="font-size:0.72rem;color:var(--text-muted)">Số từ: @c.TokenCount tokens | Trang: @c.PageNumber</span>
                         </div>
-                        <p style="font-size:0.85rem;color:var(--text-secondary);line-height:1.6;white-space:pre-line">@c.Content</p>
+                        <p style="font-size:0.85rem;color:var(--text-secondary);line-height:1.6;white-space:pre-line;transition:all 0.3s ease">@c.Content</p>
                     </div>
                 }
             }
@@ -130,20 +130,75 @@
 
 @section Scripts {
 <script>
-    window.addEventListener('DOMContentLoaded', () => {
+    function highlightChunkFromHash() {
+        document.querySelectorAll('.chunk-card').forEach(c => {
+            c.classList.remove('cited-chunk-active');
+            const oldBanner = c.querySelector('.cited-banner');
+            if (oldBanner) oldBanner.remove();
+            const p = c.querySelector('p');
+            if (p && p.dataset.rawText) {
+                p.innerHTML = p.dataset.rawText;
+            }
+        });
+
         const hash = window.location.hash;
         if (hash && hash.startsWith('#chunk-')) {
             const el = document.querySelector(hash);
             if (el) {
                 setTimeout(() => {
                     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    el.style.border = '2px solid var(--accent)';
-                    el.style.boxShadow = '0 0 24px rgba(59, 130, 246, 0.45)';
-                    el.style.background = 'rgba(59, 130, 246, 0.08)';
-                }, 300);
+
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const quoteParam = urlParams.get('quote');
+
+                    // 1. Highlight targeted chunk card
+                    el.classList.add('cited-chunk-active');
+                    const header = el.querySelector('.chunk-header');
+                    if (header && !el.querySelector('.cited-banner')) {
+                        const banner = document.createElement('div');
+                        banner.className = 'cited-banner';
+                        banner.style.cssText = 'background:#6366f1;color:#ffffff;padding:4px 12px;border-radius:6px;font-size:0.78rem;font-weight:700;margin-bottom:10px;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px #6366f166;';
+                        banner.innerHTML = '🎯 ĐOẠN AI TRÍCH DẪN (CITED CHUNK)';
+                        header.parentNode.insertBefore(banner, header);
+                    }
+
+                    // 2. Perform STRICT EXACT text highlight inside the paragraph (NO arbitrary fallbacks)
+                    const p = el.querySelector('p');
+                    if (p) {
+                        if (!p.dataset.rawText) p.dataset.rawText = p.innerHTML;
+                        const rawContent = p.dataset.rawText;
+
+                        if (quoteParam && quoteParam.trim().length > 0) {
+                            const cleanQuote = quoteParam.trim();
+                            const idx = rawContent.indexOf(cleanQuote);
+                            if (idx >= 0) {
+                                const before = rawContent.substring(0, idx);
+                                const matched = rawContent.substring(idx, idx + cleanQuote.length);
+                                const after = rawContent.substring(idx + cleanQuote.length);
+                                p.innerHTML = before + '<mark class="cited-text-line">' + matched + '</mark>' + after;
+                            } else {
+                                const quoteWords = cleanQuote.toLowerCase().split(/[^\w\u00C0-\u024F\u1E00-\u1EFF]+/).filter(w => w.length > 1);
+                                const sentences = rawContent.split(/(?<=[.!?;\n])\s+/);
+                                const highlighted = sentences.map(s => {
+                                    const sLower = s.toLowerCase();
+                                    const matchCount = quoteWords.filter(w => sLower.includes(w)).length;
+                                    if (quoteWords.length > 0 && matchCount >= Math.max(1, Math.floor(quoteWords.length * 0.6))) {
+                                        return '<mark class="cited-text-line">' + s + '</mark>';
+                                    }
+                                    return s;
+                                }).join(' ');
+
+                                p.innerHTML = highlighted;
+                            }
+                        }
+                    }
+                }, 200);
             }
         }
-    });
+    }
+
+    window.addEventListener('DOMContentLoaded', highlightChunkFromHash);
+    window.addEventListener('hashchange', highlightChunkFromHash);
 
     function confirmDeleteDoc() {
         showConfirm(

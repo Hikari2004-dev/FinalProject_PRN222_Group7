@@ -15,7 +15,6 @@ namespace FinalProject_PRN222_Group7.Pages.Dashboard
         private readonly ICreditWalletService _walletService;
         private readonly IQuizService _quizService;
         private readonly UserManager<AppUser> _userManager;
-        private readonly AppDbContext _context;
 
         public IndexModel(
             IReportService reportService,
@@ -23,8 +22,7 @@ namespace FinalProject_PRN222_Group7.Pages.Dashboard
             IChatService chatService,
             ICreditWalletService walletService,
             IQuizService quizService,
-            UserManager<AppUser> userManager,
-            AppDbContext context)
+            UserManager<AppUser> userManager)
         {
             _reportService = reportService;
             _docService = docService;
@@ -32,7 +30,6 @@ namespace FinalProject_PRN222_Group7.Pages.Dashboard
             _walletService = walletService;
             _quizService = quizService;
             _userManager = userManager;
-            _context = context;
         }
 
         public string UserName { get; set; } = string.Empty;
@@ -101,26 +98,13 @@ namespace FinalProject_PRN222_Group7.Pages.Dashboard
                 MyDocumentCount = allDocs.Count();
                 RecentDocuments = allDocs.Take(5).ToList();
 
-                RecentSessions = await _context.ChatSessions
-                    .Include(s => s.Course)
-                    .Include(s => s.User)
-                    .OrderByDescending(s => s.UpdatedAt)
-                    .Take(5)
-                    .ToListAsync();
-                MyChatSessions = await _context.ChatSessions.CountAsync();
+                var allSessions = (await _chatService.GetAllSessionsAsync()).ToList();
+                RecentSessions = allSessions.Take(5).ToList();
+                MyChatSessions = allSessions.Count;
             }
             else // Student
             {
-                var studentCourseIds = await _context.ChatSessions
-                    .Where(s => s.UserId == user.Id && s.CourseId.HasValue)
-                    .Select(s => s.CourseId!.Value)
-                    .Union(_context.QuizAttempts
-                        .Where(a => a.UserId == user.Id)
-                        .Select(a => a.Quiz.CourseId))
-                    .Distinct()
-                    .ToListAsync();
-
-                var myDocs = allDocs.Where(d => studentCourseIds.Contains(d.CourseId)).ToList();
+                var myDocs = (await _docService.GetStudentCourseDocumentsAsync(user.Id)).ToList();
                 MyDocumentCount = myDocs.Count;
                 RecentDocuments = myDocs.Take(5).ToList();
 

@@ -355,6 +355,8 @@
             var msg = input.value.trim();
             if (!msg) return;
 
+            window.latestQuestionText = msg;
+
             var area = document.getElementById('messagesArea');
             var welcome = document.getElementById('welcomeState');
             if (welcome) welcome.remove();
@@ -397,9 +399,12 @@
 
         function formatInlineCitations(text) {
             if (!text) return '';
-            return text.replace(/\[Chunk\s*#?(\d+)(?:\|(\d+))?\]/gi, function(match, chunkNum, docId) {
-                var href = docId ? '/Documents/Detail/' + docId + '#chunk-' + chunkNum : '#';
-                return '<a href="' + href + '" target="_blank" class="inline-cite-tag" title="Xem phân mảnh Chunk #' + chunkNum + '">Chunk #' + chunkNum + ' ↗</a>';
+            return text.replace(/\[Chunk\s*#?(\d+)(?:\|(\d+))?(?:\|quote:\s*([^\]]+))?\]/gi, function(match, chunkNum, docId, quoteText) {
+                var cleanQuote = quoteText ? quoteText.trim() : '';
+                var paramStr = cleanQuote ? '?quote=' + encodeURIComponent(cleanQuote) : (window.latestQuestionText ? '?q=' + encodeURIComponent(window.latestQuestionText) : '');
+                var href = docId ? '/Documents/Detail/' + docId + paramStr + '#chunk-' + chunkNum : '#';
+                var titleText = cleanQuote ? 'Trích dẫn: "' + escapeHtml(cleanQuote) + '"' : 'Xem phân mảnh Chunk #' + chunkNum;
+                return '<a href="' + href + '" target="_blank" class="inline-cite-tag" title="' + titleText + '">Chunk #' + chunkNum + ' ↗</a>';
             });
         }
 
@@ -418,12 +423,14 @@
             var citeHtml = '';
             if (citations && citations.length > 0) {
                 citeHtml = '<div class="message-citations"><span style="font-size:0.75rem;color:var(--text-muted);font-weight:500">Nguồn:</span>';
+                var qParam = window.latestQuestionText ? '?q=' + encodeURIComponent(window.latestQuestionText) : '';
                 citations.forEach(function(c) {
                     var parts = c.split('|');
                     var label = parts[0].trim();
                     var link = parts.length > 1 ? parts[1].trim() : null;
                     if (link) {
-                        citeHtml += '<a href="' + link + '" target="_blank" class="citation-pill citation-link" style="text-decoration:none">📄 ' + escapeHtml(label) + ' ↗</a>';
+                        var fullLink = link + (link.includes('?') ? '&q=' + encodeURIComponent(window.latestQuestionText || '') : qParam);
+                        citeHtml += '<a href="' + fullLink + '" target="_blank" class="citation-pill citation-link" style="text-decoration:none">📄 ' + escapeHtml(label) + ' ↗</a>';
                     } else {
                         citeHtml += '<span class="citation-pill">' + escapeHtml(label) + '</span>';
                     }
