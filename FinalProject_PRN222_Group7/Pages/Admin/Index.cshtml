@@ -125,7 +125,7 @@
                             }
                             else
                             {
-                                <button class="btn btn-secondary btn-sm" onclick="openEditUserModal('@u.Id', '@Html.Raw(u.FullName)', '@role', @(u.IsActive.ToString().ToLower()))">Phân quyền</button>
+                                <button class="btn btn-secondary btn-sm" onclick="openEditUserModal('@u.Id', '@Html.Raw(u.FullName)', '@role', @(u.IsActive.ToString().ToLower()))">Trạng thái</button>
                             }
                         </td>
                     </tr>
@@ -322,9 +322,9 @@
 
 <!-- Edit User Modal -->
 <div id="editUserModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px);z-index:200;align-items:center;justify-content:center">
-    <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-2xl);padding:28px;width:100%;max-width:460px;box-shadow:var(--shadow-xl);animation:modalIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)">
+    <div style="background:#ffffff !important;border:1px solid var(--border);border-radius:var(--radius-2xl);padding:28px;width:100%;max-width:460px;box-shadow:var(--shadow-xl);animation:modalIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
-            <h3 style="font-family:var(--font-sans);font-size:1.15rem;font-weight:700">Phân quyền tài khoản</h3>
+            <h3 style="font-family:var(--font-sans);font-size:1.15rem;font-weight:700">Quản lý trạng thái tài khoản</h3>
             <button onclick="document.getElementById('editUserModal').style.display='none'" style="background:var(--bg-elevated);border:none;color:var(--text-muted);cursor:pointer;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
@@ -338,12 +338,8 @@
                     <input type="text" id="editUserFullName" class="form-control" readonly style="background:var(--bg-elevated);cursor:not-allowed;" />
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Vai trò</label>
-                    <select name="role" id="editUserRole" class="form-control">
-                        <option value="Student">Sinh viên</option>
-                        <option value="Lecturer">Giảng viên</option>
-                        <option value="Admin">Quản trị viên</option>
-                    </select>
+                    <label class="form-label">Vai trò <span style="font-size:0.75rem;color:var(--text-muted);font-weight:400">(Cố định khi đăng ký)</span></label>
+                    <input type="text" id="editUserRoleDisplay" class="form-control" readonly style="background:var(--bg-elevated);cursor:not-allowed;font-weight:600;" />
                 </div>
                 <div class="form-group">
                     <label class="form-label">Trạng thái hoạt động</label>
@@ -369,7 +365,7 @@
     function openEditUserModal(id, fullName, role, isActive) {
         document.getElementById('editUserId').value = id;
         document.getElementById('editUserFullName').value = fullName;
-        document.getElementById('editUserRole').value = role;
+        document.getElementById('editUserRoleDisplay').value = role === 'Admin' ? 'Quản trị viên (Admin)' : role === 'Lecturer' ? 'Giảng viên (Lecturer)' : 'Học viên (Student)';
         document.getElementById('editUserIsActive').value = isActive ? "true" : "false";
         document.getElementById('editUserModal').style.display = 'flex';
     }
